@@ -1,0 +1,16 @@
+# The authoring workspace stays local. Only the prebuilt public release is versioned.
+/*
+!/.gitignore
+!/README.md
+!/COPYRIGHT.md
+!/.github/
+!/.github/**
+!/site/
+!/site/**
+!/public/
+/public/*
+!/public/profile-cover.svg
+!/public/profile-ascii.svg
+!/public/THIRD-PARTY-NOTICES.txt
+*.map
+.DS_Store

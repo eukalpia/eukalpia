@@ -1,0 +1,60 @@
+name: Publish the city
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate the prebuilt release
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFile,readdir} from 'node:fs/promises';
+          import {join} from 'node:path';
+          import {createHash} from 'node:crypto';
+          const manifest=JSON.parse(await readFile('site/release-manifest.json','utf8'));
+          if(manifest.sourceMaps!==false||!Array.isArray(manifest.files)) throw new Error('Invalid release manifest');
+          const permitted=name=>/^(index\.html|favicon\.svg|profile-(cover|ascii)\.svg|og\.png|city-cinematic\.webp|THIRD-PARTY-NOTICES\.txt)$/.test(name)||/^assets\/[^/]+\.(js|css|woff2?|ttf|wasm)$/.test(name)||/^materials\/[^/]+\.(hdr|jpe?g|png|webp)$/.test(name)||/^models\/factory-kit\/(?:textures\/)?[^/]+\.(gltf|bin|jpe?g|png)$/.test(name)||/^models\/ur01\/(?:[^/]+\.glb|manifest\.json)$/.test(name);
+          const listed=new Set();
+          for(const file of manifest.files){
+            if(typeof file.path!=='string'||file.path.includes('..')||file.path.includes('\\')||!permitted(file.path)||listed.has(file.path)) throw new Error('Invalid release path');
+            listed.add(file.path);
+            const bytes=await readFile(`site/${file.path}`);
+            if(bytes.length!==file.bytes||createHash('sha256').update(bytes).digest('hex')!==file.sha256) throw new Error(`Checksum mismatch: ${file.path}`);
+          }
+          async function inspect(directory,prefix=''){
+            for(const entry of await readdir(directory,{withFileTypes:true})){
+              const name=prefix+entry.name,path=join(directory,entry.name);
+              if(entry.isDirectory()) await inspect(path,name+'/');
+              else if(!entry.isFile()) throw new Error(`Unexpected non-file release asset: ${name}`);
+              else if(name!=='release-manifest.json'&&!listed.has(name)) throw new Error(`Unlisted release asset: ${name}`);
+            }
+          }
+          await inspect('site');
+          for(const required of ['index.html','profile-cover.svg','profile-ascii.svg']) if(!listed.has(required)) throw new Error(`Missing release asset: ${required}`);
+          const cover=await readFile('site/profile-cover.svg','utf8');
+          if([...cover.matchAll(/<image\b[^>]*\bhref="data:image\/(?:jpeg|webp);base64,[^"]+"/g)].length<2||/<(?:text|foreignObject|script)\b/i.test(cover)||!/animation:[^;}]*step-end/.test(cover)||!/<use href="#frame-0"\s*\/>/.test(cover)) throw new Error('The profile cover is not an overlay-free captured frame sequence');
+          console.log(`Verified ${manifest.files.length} release assets.`);
+          NODE
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

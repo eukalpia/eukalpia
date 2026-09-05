@@ -1,0 +1,276 @@
+{
+  "generatedAt": "2026-09-05T20:21:38.051Z",
+  "sourceMaps": false,
+  "files": [
+    {
+      "path": "assets/barlow-condensed-latin-600-normal-BFJEwTuo.woff",
+      "bytes": 18892,
+      "sha256": "02e9d2ca2e9af5d8dbdfd30c4a5aa59632205901e9045140b559a44d361d8a46"
+    },
+    {
+      "path": "assets/barlow-condensed-latin-600-normal-DepVgxBB.woff2",
+      "bytes": 22308,
+      "sha256": "215a93c696f442034a46fbb382958f753fda60e30490683aeea6b235fcbb2b66"
+    },
+    {
+      "path": "assets/character-BSoN78fY.js",
+      "bytes": 23984,
+      "sha256": "7672f15b277e99b98bf59047efc7e6f6af24c1af5a3d16f4f0f9c02521cd87f8"
+    },
+    {
+      "path": "assets/City-BFhRCai-.js",
+      "bytes": 8369,
+      "sha256": "9a609e81ec1ca484bd060883fee79f97df19056081d955ed49a25d7bc5ac06c3"
+    },
+    {
+      "path": "assets/create-city-TJ6JcRCg.js",
+      "bytes": 216444,
+      "sha256": "4950591897f761cd36e013dbab236ed3ca3b0735aa9840838b4f07aaebfc6759"
+    },
+    {
+      "path": "assets/Experiment-BQiryQKt.js",
+      "bytes": 95790,
+      "sha256": "fb97f356a79be4ee809024a22165aaa53b56bcd5ee455d3f4e495e897a913238"
+    },
+    {
+      "path": "assets/Experiment-DGYta9Gz.css",
+      "bytes": 49756,
+      "sha256": "6b9bc7fb534584726a8bab10f09e03ff24b3d3088f167f38935fe482f404374f"
+    },
+    {
+      "path": "assets/generateMeshBVH.worker-Dhxl38Ve.js",
+      "bytes": 162633,
+      "sha256": "9b27fb5d6e6e5cbb28e0bff5cccfe5041496ebeead7a935237c89cfa23bba98b"
+    },
+    {
+      "path": "assets/ibm-plex-mono-latin-400-normal-CvHOgSBP.woff",
+      "bytes": 13144,
+      "sha256": "328d50b6ece9ca25c46eea3e885ba497f6237f2fb84ef7b92f88e14a1a25e381"
+    },
+    {
+      "path": "assets/ibm-plex-mono-latin-400-normal-DMJ8VG8y.woff2",
+      "bytes": 14708,
+      "sha256": "08949f728dc52d528e69b1667d15c89a5686a4ee9a296ff90983985f99c380f7"
+    },
+    {
+      "path": "assets/ibm-plex-mono-latin-500-normal-CB9ihrfo.woff",
+      "bytes": 13156,
+      "sha256": "09f018c58556e5801ecc49d5b5275dcff4c73311c2af6b88e31c51d76d076a9d"
+    },
+    {
+      "path": "assets/ibm-plex-mono-latin-500-normal-DSY6xOcd.woff2",
+      "bytes": 14888,
+      "sha256": "01d285447409c8a588692162439a038b8cbd7871309ee20267b0d2d91c6e8e22"
+    },
+    {
+      "path": "assets/index-FeWZcjVo.js",
+      "bytes": 2310,
+      "sha256": "90570d95e84f6f56e6ad5cd3471c0ba356abb3c59f9a020259249e96c5880c87"
+    },
+    {
+      "path": "assets/parallelMeshBVH.worker-CpTCYFrQ.js",
+      "bytes": 167003,
+      "sha256": "d174fce2e66f967e8f7481f880e7a55602031969a06de472b853c47b90c3f5c9"
+    },
+    {
+      "path": "assets/pathtracer-D97F1KlO.js",
+      "bytes": 214130,
+      "sha256": "48dcbfdde3278e3b599db47163dfe8c49c65c8656551e2c5e26726f60cf09fa3"
+    },
+    {
+      "path": "assets/ray-tracing-DdhOlKKH.js",
+      "bytes": 46210,
+      "sha256": "43f62eae929a623e1522a0b8ff7b9d4fbbb36132e509128ac700f114c100e661"
+    },
+    {
+      "path": "assets/rolldown-runtime-Czjbc987.js",
+      "bytes": 2580,
+      "sha256": "a143c6efbcd4b3cb0993acb6d3ca9f92d5059089c27eb692de2e1a279d2431cf"
+    },
+    {
+      "path": "assets/silkscreen-latin-400-normal-CtPo2yA5.woff2",
+      "bytes": 8404,
+      "sha256": "e6c72ea4702249202bcdd79d3343057e4e25ef1f04e3fcffd8602ab53b40b4cc"
+    },
+    {
+      "path": "assets/silkscreen-latin-400-normal-D0DfPJut.woff",
+      "bytes": 4940,
+      "sha256": "45ba6922f8e99d559d77229f7d93d17314e0d582bfd4ce36c4b6858d421bbdde"
+    },
+    {
+      "path": "assets/three-addons-BUBfLlGB.js",
+      "bytes": 184144,
+      "sha256": "a502af17a9b253bc9d4003e770d63fc5fb886353321b8aaaa0ef5ba05355944a"
+    },
+    {
+      "path": "assets/three-DAm5_DZ4.js",
+      "bytes": 591885,
+      "sha256": "40abeba441718c15499cee8e4e2c83f3170a3e0e818b8dc3bbabee3b06260d65"
+    },
+    {
+      "path": "assets/vendor-jyMoNgwb.css",
+      "bytes": 8334,
+      "sha256": "9e8e0cdba735211736c563a1cb7c8d8623a7359101f6520ca1aaf4b0240dc31e"
+    },
+    {
+      "path": "assets/vendor-wK21bARG.js",
+      "bytes": 199622,
+      "sha256": "06eea3aaea7d850ee6bffb2df83a098ab0cd33dc9154a1df136afad14d0bb865"
+    },
+    {
+      "path": "city-cinematic.webp",
+      "bytes": 65514,
+      "sha256": "13f49cdb6582554a13e515fad65b88f504024afa428ba77a5a56799cbceef365"
+    },
+    {
+      "path": "favicon.svg",
+      "bytes": 177,
+      "sha256": "d39a6180a100d291e6beef12bd730f9688ad368dd152c7872024e2babb46f876"
+    },
+    {
+      "path": "index.html",
+      "bytes": 2167,
+      "sha256": "f2920606dbc91aaf3fe624aa0c3ac8176014806d6202b3edcfa9dc14d4b7deb1"
+    },
+    {
+      "path": "materials/concrete-arm.jpg",
+      "bytes": 304996,
+      "sha256": "c3c85e17267641fed14d872cc5cb5f380d62c8b50dcfa0e3bf9f29a1f62d9f2f"
+    },
+    {
+      "path": "materials/concrete-diff.jpg",
+      "bytes": 141844,
+      "sha256": "963d139aa824e8cf1f1bf9500d50099e44cda07fb67318eb79f6ff4f3af5931d"
+    },
+    {
+      "path": "materials/concrete-normal.jpg",
+      "bytes": 491318,
+      "sha256": "8eb4b72105927a0187263893903e7548019eafe2c92af8588a0f9c12bafe4708"
+    },
+    {
+      "path": "materials/rock-arm.jpg",
+      "bytes": 775175,
+      "sha256": "8de45a3aa0be70f8baf5c609603bb6bba0274ee4eb8c8e47dad455258d5d7f2d"
+    },
+    {
+      "path": "materials/rock-color.jpg",
+      "bytes": 886291,
+      "sha256": "07edda2bbe4715b01aae2e4bac9f21f204cf4aae37b4733ef01de33281e5e60e"
+    },
+    {
+      "path": "materials/rock-normal.jpg",
+      "bytes": 1152344,
+      "sha256": "c645af7f6a20bf77421765e6f998873834821e1950a3a0a21c5ee9ced32cecc1"
+    },
+    {
+      "path": "materials/sky-light.hdr",
+      "bytes": 1173154,
+      "sha256": "206c67e3a1b992282821cf06662bdd69bbb4915c1c4444a66338a40d6a7d4e34"
+    },
+    {
+      "path": "materials/steel-arm.jpg",
+      "bytes": 504695,
+      "sha256": "940e4e9f65442772fa922e2e1a90e97df47dc6593b9b0dec309883bae165e68b"
+    },
+    {
+      "path": "materials/steel-diff.jpg",
+      "bytes": 199858,
+      "sha256": "7fc2376a15641b4dbce14104d850a3b88afb09f7adeccb8e05bda3f1e8ae54ee"
+    },
+    {
+      "path": "materials/steel-normal.jpg",
+      "bytes": 354071,
+      "sha256": "7716299610c36d180fd6230491a2543cc05017b4f286e610473e6b957aee20fd"
+    },
+    {
+      "path": "models/factory-kit/factory.bin",
+      "bytes": 90180,
+      "sha256": "d02571860545ae6f701ca9f0acb7916de3423ffa0abe52e0174eb15c76d2245d"
+    },
+    {
+      "path": "models/factory-kit/factory.gltf",
+      "bytes": 6036,
+      "sha256": "5512a72c5ef7a4e8ec0a2de9677f174823b25d35070a3a114f048af6565476c1"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_brick_arm_1k.jpg",
+      "bytes": 345677,
+      "sha256": "ef7488b0efdf07f6471b1278f0c84280f933bfb0d978fa19f38a5e8f64a33298"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_brick_diff_1k.jpg",
+      "bytes": 420825,
+      "sha256": "9f11bb38bc2a5c6a6fedc0da73a725508a0a899fa71caad1022ae1af8107a0bf"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_brick_nor_gl_1k.jpg",
+      "bytes": 563013,
+      "sha256": "b5ea10deaef735aadc426579136bf8c46767c7c552787e66fc2840e776c0c863"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_trim_01_arm_1k.jpg",
+      "bytes": 283705,
+      "sha256": "046b6a20e30d799a6bb3e9a2858371a81186c8de5e421de2258d9cec23c285a7"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_trim_01_diff_1k.jpg",
+      "bytes": 142745,
+      "sha256": "dd82a1a8d26ad20b3bbb8ae62a340f42f59bc7870716137e10bdce18285ec0a9"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_trim_01_nor_gl_1k.jpg",
+      "bytes": 351766,
+      "sha256": "9f2fd310be9bd892e838c917ab67918dc99999a295c1daf9d783099611f374ff"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_windows_arm_1k.jpg",
+      "bytes": 467709,
+      "sha256": "212998b4fe1bf52deb319b39a89f055377e960fd0be35e31b863e3fa231c8e45"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_windows_diff_1k.jpg",
+      "bytes": 188981,
+      "sha256": "f5a2d817322f82f8aeacdcc29dce2006ba4a865c78e3722a9834c1aa0dc988a8"
+    },
+    {
+      "path": "models/factory-kit/textures/modular_factory_facade_windows_nor_gl_1k.jpg",
+      "bytes": 306098,
+      "sha256": "afbe8224e73fc9da94da1e710fbd85d70a4331ec8d7e005fc36f33b801038020"
+    },
+    {
+      "path": "models/ur01/character-mobile.glb",
+      "bytes": 6665640,
+      "sha256": "c69ac5545c83ae67916679c4d6639fb0a8f9511aa348da5ca2548b6dce75ad32"
+    },
+    {
+      "path": "models/ur01/character.glb",
+      "bytes": 17819144,
+      "sha256": "8bb0b531a5ac29d9e91f155e57f9fb4f303c4c66d24c7e3b33aa891cfd51f9e8"
+    },
+    {
+      "path": "models/ur01/manifest.json",
+      "bytes": 550,
+      "sha256": "7b4c7ebaeecd9a9691209d5161ef0a5460e031267a51a1d6e4e4b5d4e0278551"
+    },
+    {
+      "path": "og.png",
+      "bytes": 553605,
+      "sha256": "e84dbfefcc9861fd99196f304ceecf886ebd9c432dfd5967a97f3b6fb5dec717"
+    },
+    {
+      "path": "profile-ascii.svg",
+      "bytes": 6105,
+      "sha256": "4a7f234c512d95286b29e98de85c22b59ac33e2fbd54baffff69e3caa2a52a51"
+    },
+    {
+      "path": "profile-cover.svg",
+      "bytes": 3557659,
+      "sha256": "13235ab4e67f6b423edcfbc1bb1229b293d16932e1738e1a99e73cabee8371d3"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.txt",
+      "bytes": 27552,
+      "sha256": "724e56db4940a4f972a33098f32a0b1615de22f9c8ebc8ea19679946baaea441"
+    }
+  ]
+}

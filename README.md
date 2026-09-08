@@ -14,7 +14,7 @@
   <a href="https://eukalpia.github.io/eukalpia/?sector=street">STREET LEVEL</a>
 </p>
 
-<p align="center"><strong>UMARALIEV RAVSHAN RUSTAMJON UGLI</strong><br />Graduate of <strong>Turin Polytechnic University in Tashkent</strong>.</p>
+<p align="center"><strong>UMARALIEV RAVSHAN RUSTAMJON O'GLI</strong><br />Graduate of <strong>Turin Polytechnic University in Tashkent</strong>.</p>
 
 <details>
 <summary>Behind the city · projects, work & contact</summary>

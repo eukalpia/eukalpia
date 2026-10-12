@@ -10,13 +10,24 @@ vi.mock('../src/engine/world', () => ({
 
 import { App } from '../src/app/App';
 
+/** A world with photo mode idle, for tests that are about something else. */
+const photo = {
+  enter: async () => ({ ok: true }),
+  exit() {},
+  status: () => null,
+  onError() {},
+  focusAt() {},
+  setAperture() {},
+  save: async () => new Blob(),
+};
+
 afterEach(cleanup);
 
 test('a Day/Night click while the world loads is applied once it is ready', async () => {
   render(<App quality="high" initialTime="day" reducedMotion webgl2 />);
   fireEvent.click(screen.getByRole('button', { name: 'Switch to night' }));
   await act(async () => {
-    resolveWorld({ setTime, resize() {}, dispose() {} });
+    resolveWorld({ setTime, resize() {}, dispose() {}, photo });
   });
   expect(setTime).toHaveBeenLastCalledWith('night');
   expect(screen.getByRole('button', { name: 'Switch to daylight' })).toBeTruthy();
@@ -28,6 +39,7 @@ test('while walking near the LMS lift, the hint names the L action', async () =>
   await act(async () => {
     resolveWorld({
       setTime,
+      photo,
       resize() {},
       dispose() {},
       setMode: () => true,
@@ -48,6 +60,7 @@ test('the walk button follows the world when it leaves walk mode on its own', as
   await act(async () => {
     resolveWorld({
       setTime,
+      photo,
       resize() {},
       dispose() {},
       setMode: () => true,
@@ -67,7 +80,7 @@ test('walking that is not available yet, or failed to load, says so', async () =
   let state = 'loading';
   render(<App quality="high" initialTime="day" reducedMotion webgl2 />);
   await act(async () => {
-    resolveWorld({ setTime, resize() {}, dispose() {}, setMode: () => false, walkState: () => state });
+    resolveWorld({ setTime, photo, resize() {}, dispose() {}, setMode: () => false, walkState: () => state });
   });
   fireEvent.click(screen.getByRole('button', { name: 'Walk through the city' }));
   expect(screen.getByRole('status').textContent).toBe('UR-01 is still loading…');

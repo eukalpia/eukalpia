@@ -1,4 +1,4 @@
-import { createFacadeMaterial } from '../src/world/buildings/facadeMaterial';
+import { LIT_ROOM_MEAN, createFacadeMaterial } from '../src/world/buildings/facadeMaterial';
 import { fakeShader, fakeTextures } from './helpers';
 
 test('facade shader injects window grid, interior and night code', () => {
@@ -34,4 +34,13 @@ test('every injection point exists in the standard shader', () => {
   for (const marker of ['/*facade:normal*/', '/*facade:emissive*/', '/*facade:surface*/', '/*facade:ao*/'])
     expect(shader.fragmentShader).toContain(marker);
   expect(shader.fragmentShader.length).toBeGreaterThan(before.length);
+});
+
+test('far-away windows glow with the same mean energy as near rooms', () => {
+  const m = createFacadeMaterial({ tier: 'high', textures: fakeTextures() });
+  const shader = fakeShader();
+  m.onBeforeCompile(shader, null as never);
+  expect(shader.fragmentShader).toContain(`LIT_ROOM_MEAN ${LIT_ROOM_MEAN.toFixed(3)}`);
+  expect(shader.fragmentShader).toContain('/*facade:farlit*/');
+  expect(shader.fragmentShader).toContain('LIT_ROOM_MEAN * fFarLit');
 });

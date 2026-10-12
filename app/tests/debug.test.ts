@@ -11,3 +11,7 @@ test('parses shot, time and quality', () => {
 test('ignores unknown values', () => {
   expect(parseShotParams('?shot=nope&time=noon&quality=ultra')).toEqual({});
 });
+
+test('parses known debug flags and drops unknown ones', () => {
+  expect(parseShotParams('?debug=nofog,noreflect,bogus').debug).toEqual(['nofog', 'noreflect']);
+});

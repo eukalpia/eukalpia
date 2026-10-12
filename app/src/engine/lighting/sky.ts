@@ -58,7 +58,8 @@ void main() {
   float visible = smoothstep(-0.02, 0.12, up);
   col += vec3(0.018, 0.02, 0.028) * band * smoothstep(0.3, 0.8, dust) * mix(1.0, 0.35, lane) * visible;
 
-  float s = stars(dir, 140.0, 0.94) * 3.0 + stars(dir, 320.0, 0.975) * 1.6 + band * stars(dir, 520.0, 0.93) * 1.2;
+  // Kept under the night bloom threshold except for a few bright stars.
+  float s = stars(dir, 140.0, 0.975) * 0.9 + stars(dir, 320.0, 0.985) * 0.35 + band * stars(dir, 520.0, 0.95) * 0.3;
   vec3 starTint = mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.86, 0.7), hash13(floor(dir * 260.0) + 9.0));
   col += starTint * s * visible;
 

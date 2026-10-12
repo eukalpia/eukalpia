@@ -18,6 +18,8 @@ const flag = name => args.find(a => a.startsWith(`--${name}=`))?.split('=')[1];
 const quality = flag('quality') ?? 'high';
 const [width, height] = (flag('size') ?? '1280x720').split('x').map(Number);
 const noWebgl = args.includes('--no-webgl');
+const timeOverride = flag('time');
+const debugFlags = flag('debug');
 const shots = args.filter(a => !a.startsWith('--'));
 const failures = [];
 
@@ -68,14 +70,17 @@ try {
       if (m.type() === 'error' || text.includes('THREE.WebGLProgram')) errors.push(text.slice(0, 600));
     });
     page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
-    const time = shot.includes('night') ? 'night' : 'day';
+    const time = timeOverride ?? (shot.includes('night') ? 'night' : 'day');
     const started = Date.now();
-    await page.goto(`${base}?shot=${shot}&time=${time}&quality=${quality}`);
+    await page.goto(`${base}?shot=${shot}&time=${time}&quality=${quality}${debugFlags ? `&debug=${debugFlags}` : ''}`);
     await page.waitForFunction(() => window.__eukalpia?.ready && window.__eukalpia.frame >= 12, null, {
       timeout: 240000,
       polling: 500,
     });
-    const file = join(outDir, `${shot}${quality === 'high' ? '' : `-${quality}`}.png`);
+    const file = join(
+      outDir,
+      `${shot}${timeOverride ? `-${timeOverride}` : ''}${debugFlags ? `-${debugFlags.replaceAll(',', '-')}` : ''}${quality === 'high' ? '' : `-${quality}`}.png`,
+    );
     await page.screenshot({ path: file });
     const s = await page.evaluate(() => window.__eukalpia.stats());
     s.seconds = Math.round((Date.now() - started) / 100) / 10;
@@ -85,6 +90,18 @@ try {
       failures.push(
         `${shot}: over budget (${s.drawCalls}/${s.budget.drawCalls} calls, ${s.triangles}/${s.budget.triangles} tris)`,
       );
+
+    // Resizing must resize the drawing buffer (composer, shadows and camera follow it).
+    await page.setViewportSize({ width: 900, height: 900 });
+    const resized = await page.evaluate(async () => {
+      const start = window.__eukalpia.frame;
+      while (window.__eukalpia.frame < start + 3) await new Promise(r => setTimeout(r, 100));
+      const canvas = document.querySelector('canvas');
+      const dpr = window.__eukalpia.stats().dpr;
+      return canvas.width === Math.round(900 * dpr) && canvas.height === Math.round(900 * dpr);
+    });
+    if (!resized) failures.push(`${shot}: canvas did not follow a 900×900 resize`);
+    await page.setViewportSize({ width, height });
 
     // The render loop must pause while the tab is hidden.
     const paused = await page.evaluate(async () => {

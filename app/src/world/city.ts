@@ -23,6 +23,7 @@ import type { District } from '../content/districts';
 import type { QualityTier } from '../engine/quality';
 import type { SunRig } from '../engine/lighting/sun';
 import { buildCity, MeshBuilder, type PropInstance } from './buildings/geometry';
+import type { BuildingSpec } from './buildings/massing';
 import {
   createFacadeMaterial,
   type FacadeMaterial,
@@ -131,6 +132,7 @@ function propGeometry(kind: PropInstance['kind']): BufferGeometry {
 
 export interface CityMeshes {
   group: Group;
+  specs: BuildingSpec[];
   facade: FacadeMaterial;
   setNight(night: boolean, litRatio: number): void;
   update(dt: number): void;
@@ -211,6 +213,7 @@ export function createCityMeshes(
   let night = false;
   return {
     group,
+    specs: city.specs,
     facade,
     setNight(isNight, litRatio) {
       night = isNight;

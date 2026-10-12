@@ -45,6 +45,8 @@ export function tourPose(t: number): TourPose {
 export interface Orbit {
   update(dt: number): void;
   applyPreset(name: ShotName): void;
+  /** Back to the overview after walking: unfreeze and fly out to the default orbit pose. */
+  home(): void;
   readonly tourActive: boolean;
   readonly controls: OrbitControls;
   dispose(): void;
@@ -104,6 +106,14 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
       controls.target.fromArray(preset.target);
       camera.position.fromArray(preset.position);
       camera.lookAt(controls.target);
+    },
+    home() {
+      frozen = false;
+      controls.enabled = true;
+      controls.target.fromArray(ORBIT_LIMITS.target);
+      camera.position.copy(controls.target).add(offset.setFromSpherical(spherical.set(1150, 1.12, 0.6)));
+      camera.lookAt(controls.target);
+      controls.update();
     },
     dispose() {
       dom.removeEventListener('pointerdown', stopTour);

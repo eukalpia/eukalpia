@@ -25,3 +25,7 @@ test('character shots are recognised', () => {
   expect(parseShotParams('?shot=character-front').shot).toBe('character-front');
   expect(parseShotParams('?shot=character-side').shot).toBe('character-side');
 });
+
+test('walkcycle is a debug flag', () => {
+  expect(parseShotParams('?debug=walkcycle').debug).toEqual(['walkcycle']);
+});

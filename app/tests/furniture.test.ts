@@ -70,3 +70,10 @@ test('lamps face their street', () => {
     expect(asphalt({ x: lamp.x + dx * 4, z: lamp.z + dz * 4 }) === 255 || !onMain(lamp)).toBe(true);
   }
 });
+
+test('low tier parks about half as many cars', () => {
+  const high = planFurniture(L, 'high').parkedCars.length;
+  const low = planFurniture(L, 'low').parkedCars.length;
+  expect(low).toBeGreaterThan(high * 0.4);
+  expect(low).toBeLessThan(high * 0.6);
+});

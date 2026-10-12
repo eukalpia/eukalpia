@@ -18,7 +18,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SunRig } from '../../engine/lighting/sun';
-import type { QualityTier } from '../../engine/quality';
+import { TIER_SETTINGS, type CasterKind, type QualityTier } from '../../engine/quality';
 import { MeshBuilder } from '../buildings/geometry';
 import { mulberry32, range } from '../rng';
 import type { FurniturePlan, Placement } from './furniture';
@@ -101,7 +101,7 @@ function carGeometry(): { body: BufferGeometry; glass: BufferGeometry; wheels: B
 }
 
 /** A tree: tapered trunk, three boughs and a crown of leaf cards. Leaf cards carry uv for the leaf texture. */
-function treeGeometry(variant: number): { wood: BufferGeometry; leaves: BufferGeometry } {
+function treeGeometry(variant: number, cards: number): { wood: BufferGeometry; leaves: BufferGeometry } {
   const rng = mulberry32(1000 + variant);
   const wood = new MeshBuilder();
   const height = [5.5, 7, 8.5][variant];
@@ -118,7 +118,8 @@ function treeGeometry(variant: number): { wood: BufferGeometry; leaves: BufferGe
   const uv: number[] = [];
   const col: number[] = [];
   const idx: number[] = [];
-  const cards = 130;
+  // Fewer cards on Low are scaled up so the crown keeps its coverage.
+  const grow = Math.sqrt(130 / cards);
   const radius = [2.2, 2.8, 3.2][variant];
   for (let i = 0; i < cards; i++) {
     // Uniform-ish point in an ellipsoid crown.
@@ -129,7 +130,7 @@ function treeGeometry(variant: number): { wood: BufferGeometry; leaves: BufferGe
     const cx = Math.cos(t) * s * r * radius;
     const cz = Math.sin(t) * s * r * radius;
     const cy = crownY + u * r * radius * 0.8;
-    const size = range(rng, 0.75, 1.1);
+    const size = range(rng, 0.75, 1.1) * grow;
     // Random orientation for each card.
     const q = new Quaternion().setFromAxisAngle(
       new Vector3(rng() - 0.5, rng() - 0.5, rng() - 0.5).normalize(),
@@ -240,7 +241,13 @@ function railingGeometry(plan: FurniturePlan): BufferGeometry {
 
 export const CAR_COLORS = [0x1c1d20, 0xd9d9d6, 0x8a8d91, 0x2b3a55, 0x7a1f1f, 0x3f4a3c, 0xb8a27a, 0x0f2a44];
 
-function instanced(geometry: BufferGeometry, material: Material, items: Placement[], name: string): InstancedMesh {
+function instanced(
+  geometry: BufferGeometry,
+  material: Material,
+  items: Placement[],
+  name: string,
+  cast = true,
+): InstancedMesh {
   const mesh = new InstancedMesh(geometry, material, Math.max(1, items.length));
   mesh.count = items.length;
   const m = new Matrix4();
@@ -252,7 +259,7 @@ function instanced(geometry: BufferGeometry, material: Material, items: Placemen
     mesh.setMatrixAt(i, m.compose(p.set(it.x, it.y, it.z), q.setFromAxisAngle(up, it.rotY), one)),
   );
   mesh.computeBoundingSphere();
-  mesh.castShadow = true;
+  mesh.castShadow = cast;
   mesh.receiveShadow = true;
   mesh.name = name;
   return mesh;
@@ -271,6 +278,8 @@ export interface StreetMeshes {
 export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier: QualityTier }): StreetMeshes {
   const group = new Group();
   group.name = 'Street';
+  const tier = TIER_SETTINGS[ctx.tier];
+  const casts = (kind: CasterKind) => tier.shadowCasters.has(kind);
   const disposables: { dispose(): void }[] = [];
   const keep = <T extends { dispose(): void }>(x: T) => (disposables.push(x), x);
 
@@ -293,17 +302,17 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
 
   const lamp = lampGeometry();
   disposables.push(lamp.post, lamp.lens);
-  group.add(instanced(lamp.post, metal, plan.lamps, 'lamp-posts'));
+  group.add(instanced(lamp.post, metal, plan.lamps, 'lamp-posts', casts('street')));
   const lenses = instanced(lamp.lens, lensMaterial, plan.lamps, 'lamp-lenses');
   lenses.castShadow = false;
   group.add(lenses);
 
   for (let v = 0; v < 3; v++) {
     const items = plan.trees.filter(t => t.variant === v);
-    const g = treeGeometry(v);
+    const g = treeGeometry(v, tier.leafCards);
     disposables.push(g.wood, g.leaves);
-    group.add(instanced(g.wood, bark, items, `tree-wood-${v}`));
-    const crown = instanced(g.leaves, leaves, items, `tree-leaves-${v}`);
+    group.add(instanced(g.wood, bark, items, `tree-wood-${v}`, casts('tree')));
+    const crown = instanced(g.leaves, leaves, items, `tree-leaves-${v}`, casts('tree'));
     crown.customDepthMaterial = leafDepth;
     // Tint each crown slightly so streets don't look cloned.
     const c = new Color();
@@ -315,25 +324,26 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
   }
 
   const bench = keep(benchGeometry());
-  group.add(instanced(bench, wood, plan.benches, 'benches'));
+  group.add(instanced(bench, wood, plan.benches, 'benches', casts('street')));
 
   const car = carGeometry();
   disposables.push(car.body, car.glass, car.wheels);
-  const bodies = instanced(car.body, paint, plan.parkedCars, 'parked-cars');
+  const bodies = instanced(car.body, paint, plan.parkedCars, 'parked-cars', casts('vehicle'));
   const color = new Color();
   plan.parkedCars.forEach((p, i) => bodies.setColorAt(i, color.set(CAR_COLORS[p.variant % CAR_COLORS.length])));
   if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
   group.add(
     bodies,
-    instanced(car.glass, glass, plan.parkedCars, 'parked-glass'),
-    instanced(car.wheels, tyres, plan.parkedCars, 'parked-wheels'),
+    instanced(car.glass, glass, plan.parkedCars, 'parked-glass', casts('vehicle')),
+    instanced(car.wheels, tyres, plan.parkedCars, 'parked-wheels', casts('vehicle')),
   );
 
   const railing = keep(railingGeometry(plan));
   const railMesh = new InstancedMesh(railing, rail, 1);
   railMesh.setMatrixAt(0, new Matrix4());
   railMesh.computeBoundingSphere();
-  railMesh.castShadow = railMesh.receiveShadow = true;
+  railMesh.castShadow = casts('street');
+  railMesh.receiveShadow = true;
   railMesh.name = 'railings';
   group.add(railMesh);
 

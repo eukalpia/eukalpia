@@ -11,6 +11,7 @@ import {
   type BufferGeometry,
 } from 'three';
 import type { SunRig } from '../../engine/lighting/sun';
+import { TIER_SETTINGS, type QualityTier } from '../../engine/quality';
 import { MeshBuilder } from '../buildings/geometry';
 import type { BuildingSpec } from '../buildings/massing';
 import type { CityLayout, Street } from '../layout';
@@ -312,7 +313,7 @@ export function createTraffic(
   layout: CityLayout,
   specs: readonly BuildingSpec[],
   street: StreetMeshes,
-  ctx: { sun: SunRig; cars: number; crossings: readonly Crossing[] },
+  ctx: { sun: SunRig; cars: number; crossings: readonly Crossing[]; tier: QualityTier },
 ): Traffic {
   const group = new Group();
   group.name = 'Traffic';
@@ -340,8 +341,9 @@ export function createTraffic(
   const tails = new InstancedMesh(tailGeo, tailMat, routes.length);
   const color = new Color();
   routes.forEach((r, i) => bodies.setColorAt(i, color.set(r.color)));
+  const casts = TIER_SETTINGS[ctx.tier].shadowCasters.has('vehicle');
   for (const m of [bodies, glasses, tyres]) {
-    m.castShadow = true;
+    m.castShadow = casts;
     m.receiveShadow = true;
   }
   group.add(bodies, glasses, tyres, heads, tails);
@@ -351,7 +353,7 @@ export function createTraffic(
   const podMat = new MeshStandardMaterial({ color: 0xe8ecef, roughness: 0.25, metalness: 0.6 });
   ctx.sun.setupMaterial(podMat);
   const pods = new InstancedMesh(podGeo, podMat, podCount);
-  pods.castShadow = true;
+  pods.castShadow = casts;
   const stripGeo = new MeshBuilder();
   stripGeo.box(-2.4, -0.12, -1.12, 2.4, 0.12, 1.12, true);
   const strip = stripGeo.build();

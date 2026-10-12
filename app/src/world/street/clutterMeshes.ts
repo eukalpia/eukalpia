@@ -14,6 +14,7 @@ import {
   Vector3,
 } from 'three';
 import type { SunRig } from '../../engine/lighting/sun';
+import { TIER_SETTINGS, type QualityTier } from '../../engine/quality';
 import { LocalBuilder, type V3 } from '../localBuilder';
 import { signalState, WORDS, type ClutterPlan, type Light } from './clutter';
 
@@ -70,7 +71,8 @@ export interface ClutterMeshes {
   dispose(): void;
 }
 
-export function createClutterMeshes(plan: ClutterPlan, ctx: { sun: SunRig }): ClutterMeshes {
+export function createClutterMeshes(plan: ClutterPlan, ctx: { sun: SunRig; tier: QualityTier }): ClutterMeshes {
+  const casts = TIER_SETTINGS[ctx.tier].shadowCasters.has('clutter');
   const group = new Group();
   group.name = 'StreetClutter';
 
@@ -94,7 +96,7 @@ export function createClutterMeshes(plan: ClutterPlan, ctx: { sun: SunRig }): Cl
   const steelMat = new MeshStandardMaterial({ color: 0x24282a, roughness: 0.55, metalness: 0.6 });
   ctx.sun.setupMaterial(steelMat);
   const poles = new Mesh(steelGeo, steelMat);
-  poles.castShadow = true;
+  poles.castShadow = casts;
   poles.receiveShadow = true;
   poles.name = 'signals';
 
@@ -193,7 +195,7 @@ export function createClutterMeshes(plan: ClutterPlan, ctx: { sun: SunRig }): Cl
   const fabricMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.88, side: DoubleSide });
   ctx.sun.setupMaterial(fabricMat);
   const awnings = new Mesh(fabricGeo, fabricMat);
-  awnings.castShadow = true;
+  awnings.castShadow = casts;
   awnings.receiveShadow = true;
   awnings.name = 'awnings';
 
@@ -260,7 +262,7 @@ export function createClutterMeshes(plan: ClutterPlan, ctx: { sun: SunRig }): Cl
   signs.name = 'signs';
   const frameGeo = frames.build();
   const frameMesh = new Mesh(frameGeo, steelMat);
-  frameMesh.castShadow = true;
+  frameMesh.castShadow = casts;
   frameMesh.receiveShadow = true;
   frameMesh.name = 'sign-frames';
 

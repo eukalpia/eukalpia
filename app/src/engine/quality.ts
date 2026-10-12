@@ -6,6 +6,18 @@ export const BUDGETS: Record<QualityTier, { drawCalls: number; triangles: number
   low: { drawCalls: 300, triangles: 1_200_000 },
 };
 
+/** What may cast shadows: everything on High and Medium; on Low only the big shapes. */
+export type CasterKind = 'building' | 'rock' | 'bridge' | 'tree' | 'vehicle' | 'street' | 'clutter';
+const ALL_CASTERS: ReadonlySet<CasterKind> = new Set([
+  'building',
+  'rock',
+  'bridge',
+  'tree',
+  'vehicle',
+  'street',
+  'clutter',
+]);
+
 export interface TierSettings {
   csmCascades: number;
   shadowMapSize: number;
@@ -14,12 +26,42 @@ export interface TierSettings {
   cloudSteps: number;
   interiorFurniture: boolean;
   maxDpr: number;
+  shadowCasters: ReadonlySet<CasterKind>;
+  /** Leaf cards per street tree crown. */
+  leafCards: number;
 }
 
 export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
-  high: { csmCascades: 4, shadowMapSize: 2048, ao: 'full', cloudSteps: 48, interiorFurniture: true, maxDpr: 2 },
-  medium: { csmCascades: 3, shadowMapSize: 2048, ao: 'half', cloudSteps: 24, interiorFurniture: true, maxDpr: 1.5 },
-  low: { csmCascades: 2, shadowMapSize: 1024, ao: 'off', cloudSteps: 0, interiorFurniture: false, maxDpr: 1.5 },
+  high: {
+    csmCascades: 4,
+    shadowMapSize: 2048,
+    ao: 'full',
+    cloudSteps: 48,
+    interiorFurniture: true,
+    maxDpr: 2,
+    shadowCasters: ALL_CASTERS,
+    leafCards: 130,
+  },
+  medium: {
+    csmCascades: 3,
+    shadowMapSize: 2048,
+    ao: 'half',
+    cloudSteps: 24,
+    interiorFurniture: true,
+    maxDpr: 1.5,
+    shadowCasters: ALL_CASTERS,
+    leafCards: 130,
+  },
+  low: {
+    csmCascades: 2,
+    shadowMapSize: 1024,
+    ao: 'off',
+    cloudSteps: 0,
+    interiorFurniture: false,
+    maxDpr: 1.5,
+    shadowCasters: new Set(['building', 'bridge']),
+    leafCards: 56,
+  },
 };
 
 export interface DeviceInfo {

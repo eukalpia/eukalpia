@@ -98,12 +98,13 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
   const clutterPlan = planClutter(layout, city.specs);
-  const clutter = createClutterMeshes(clutterPlan, { sun });
+  const clutter = createClutterMeshes(clutterPlan, { sun, tier: opts.quality });
   scene.add(clutter.group);
   const traffic = createTraffic(layout, city.specs, terrain.street, {
     sun,
     cars: { high: 260, medium: 160, low: 60 }[opts.quality],
     crossings: clutterPlan.crossings,
+    tier: opts.quality,
   });
   scene.add(traffic.group);
   // Signals and the cars that obey them share one clock, which stops while the tab is hidden.
@@ -122,7 +123,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     clutterPlan.signals,
     liftColliders(liftPlan),
   );
-  const lift = createLift(liftPlan, collision, { sun });
+  const lift = createLift(liftPlan, collision, { sun, tier: opts.quality });
   scene.add(lift.group);
 
   // UR-01 waits on the sidewalk. A failed download only disables walking; the city keeps running.

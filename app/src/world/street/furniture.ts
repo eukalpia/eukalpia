@@ -149,7 +149,10 @@ export function planFurniture(layout: CityLayout, tier: QualityTier): FurnitureP
     plan.trees.push(...local);
   }
 
-  if (tier === 'low') plan.trees = plan.trees.filter((_, i) => i % 2 === 0);
+  if (tier === 'low') {
+    plan.trees = plan.trees.filter((_, i) => i % 2 === 0);
+    plan.parkedCars = plan.parkedCars.filter((_, i) => i % 2 === 0);
+  }
 
   // Balustrade around every island rim, broken where bridges land.
   for (const island of layout.islands) {

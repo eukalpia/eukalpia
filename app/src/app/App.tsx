@@ -369,7 +369,12 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
         onSound={() => act({ type: 'toggleSound' })}
         onShare={share}
       >
-        <PhotoPanel world={world} canvas={canvasRef.current} onChange={on => act({ type: 'trace', on })} />
+        <PhotoPanel
+          world={world}
+          canvas={canvasRef.current}
+          tracing={ui.tracing}
+          onChange={on => act({ type: 'trace', on })}
+        />
       </Utilities>
       <Guidance
         text={guidanceText({ tracing: ui.tracing, hover, fly: ui.fly, tour: ui.tour })}

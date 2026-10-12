@@ -52,7 +52,7 @@ function recordingWorld() {
     },
     photo: {
       enter: async () => ({ ok: true }),
-      exit() {},
+      exit: rec('photoExit'),
       status: () => null,
       onError() {},
       focusAt() {},
@@ -151,6 +151,30 @@ test('the tour starts after the move to the overview: the world ends a tour when
   expect(r.calls[last('setSector')]).toEqual(['setSector', 'overview']);
   expect(r.calls[last('setTour')]).toEqual(['setTour', true]);
   expect(last('setTour')).toBeGreaterThan(last('setSector'));
+});
+
+test('walking, the tour or free flight ends photo mode in the world as well as in the interface', async () => {
+  const help = (name: RegExp) => () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Controls and help' }));
+    fireEvent.click(screen.getByRole('button', { name }));
+  };
+  const switches: [string, () => void][] = [
+    ['walk', () => fireEvent.click(screen.getByRole('button', { name: 'Walk through the city' }))],
+    ['street', () => fireEvent.keyDown(window, { key: 'e' })],
+    ['tour', help(/Start cinematic tour/)],
+    ['fly', help(/Enable free flight/)],
+  ];
+  for (const [name, go] of switches) {
+    const r = await mount();
+    const toggle = () => screen.getByRole('button', { name: /Ray Tracing/ });
+    await act(async () => void fireEvent.click(toggle()));
+    expect(toggle().getAttribute('aria-pressed'), name).toBe('true');
+    go();
+    await act(async () => {});
+    expect(r.called('photoExit'), name).toHaveLength(1);
+    expect(toggle().getAttribute('aria-pressed'), name).toBe('false');
+    cleanup();
+  }
 });
 
 test('free flight: the toast only when it starts; pixel vision reaches the world and the page', async () => {

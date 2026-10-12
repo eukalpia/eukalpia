@@ -15,7 +15,6 @@ import { DISTRICTS } from '../content/districts';
 import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../world/city';
 import { DEFAULT_SEED, createLayout } from '../world/layout';
 import { createTerrain } from '../world/terrain';
-import { createClouds } from './atmosphere/clouds';
 import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
@@ -71,12 +70,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   scene.add(sky.mesh);
   const environment = createEnvironment(renderer);
   const sun = createSun(scene, camera, opts.quality);
-  const clouds = createClouds(opts.quality);
-  scene.add(clouds.mesh);
   const flags = new Set(opts.debug ?? []);
   const post = createPost(renderer, scene, camera, opts.quality, flags);
   const sunDir = new Vector3();
-  if (flags.has('noclouds')) clouds.mesh.visible = false;
   if (flags.has('noshadow')) for (const light of sun.csm.lights) light.castShadow = false;
 
   const textures = await loadWorldTextures(renderer, import.meta.env.BASE_URL);
@@ -144,7 +140,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     scene.environment = environment.update(sky.mesh);
     scene.environmentIntensity = preset.envIntensity;
     sunDirection(preset, sunDir);
-    clouds.setPreset(preset, sunDir, time === 'night');
+    post.clouds.setPreset(preset, sunDir, time === 'night');
     post.setPreset(flags.has('nofog') ? { ...preset, fogDensity: 0 } : preset, sunDir);
     city.setNight(time === 'night', preset.windowLitRatio);
     terrain.setNight(time === 'night');
@@ -176,7 +172,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     orbit.update(dt);
     sky.update(timer.getElapsed());
     city.update(dt);
-    clouds.update(timer.getElapsed());
+    post.clouds.update(timer.getElapsed());
     terrain.update(timer.getElapsed());
     updateStreetLights(currentTime === 'night');
     sun.update();
@@ -228,7 +224,6 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       orbit.dispose();
       sun.dispose();
       sky.dispose();
-      clouds.dispose();
       post.dispose();
       city.dispose();
       terrain.dispose();

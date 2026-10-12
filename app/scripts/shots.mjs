@@ -1,7 +1,8 @@
 // Visual shot harness: builds are served with `vite preview`, rendered in headless Chromium
 // (SwiftShader), and checked for console errors, shader failures and frame budgets.
 //
-// Usage: node scripts/shots.mjs [--quality=high|medium|low] [--no-webgl] [--no-float] [--photo=N] [--size=WxH] [--port=N] <shot...>
+// Usage: node scripts/shots.mjs [--quality=high|medium|low] [--no-webgl] [--no-float] [--photo=N] [--size=WxH] [--port=N]
+//   [--ui=step,step] [--query=k=v&k=v] <shot...>
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -25,6 +26,47 @@ const noFloat = args.includes('--no-float');
 const timeOverride = flag('time');
 const debugFlags = flag('debug');
 const shots = args.filter(a => !a.startsWith('--'));
+// --query: more URL parameters for the page, e.g. --query=sector=-1.
+const extraQuery = args.find(a => a.startsWith('--query='))?.slice('--query='.length);
+// --ui: interface steps taken once the city is ready, before the screenshot.
+const uiSteps = (flag('ui') ?? '').split(',').filter(Boolean);
+const KONAMI = [
+  'ArrowUp',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowLeft',
+  'ArrowRight',
+  'b',
+  'a',
+];
+const UI_STEPS = {
+  projects: page => page.getByRole('button', { name: 'Explore projects' }).click(),
+  discoveries: page => page.getByRole('button', { name: /^Discoveries, / }).click(),
+  help: page => page.getByRole('button', { name: 'Controls and help' }).click(),
+  builder: page => page.getByRole('button', { name: /^About / }).click(),
+  inspect: async page => {
+    await UI_STEPS.projects(page);
+    await page.locator('.district-row').first().click();
+    await page.locator('.district-inspector').waitFor({ timeout: 30000 });
+  },
+  konami: async page => {
+    await page.locator('canvas').focus();
+    for (const key of KONAMI) await page.keyboard.press(key);
+  },
+  // Seven knocks on the monolith, as seven clicks on it would deliver. The blackout lasts 4.2 s, so the
+  // screenshot follows at once.
+  monolith: async page => {
+    await page.evaluate(() => {
+      for (let i = 0; i < 7; i++) window.__eukalpia.pick({ kind: 'secret', id: 'monolith' });
+    });
+    await page.locator('.blackout-message').waitFor({ timeout: 4000 });
+  },
+  settle: page => page.waitForTimeout(6000),
+};
+for (const step of uiSteps) if (!UI_STEPS[step]) throw new Error(`unknown --ui step "${step}"`);
 const failures = [];
 
 async function waitForServer() {
@@ -71,7 +113,12 @@ try {
       .isVisible({ timeout: 15000 })
       .catch(() => false);
     if (!visible) failures.push('no-webgl: postcard fallback is not visible');
-    else console.log('no-webgl: postcard fallback visible');
+    else {
+      const file = join(outDir, `no-webgl${width < 600 ? '-phone' : ''}.png`);
+      await mkdir(outDir, { recursive: true });
+      await page.screenshot({ path: file });
+      console.log(`no-webgl: postcard fallback visible → ${file}`);
+    }
   }
 
   if (noFloat) {
@@ -119,7 +166,9 @@ try {
     page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
     const time = timeOverride ?? (shot.includes('night') ? 'night' : 'day');
     const started = Date.now();
-    await page.goto(`${base}?shot=${shot}&time=${time}&quality=${quality}${debugFlags ? `&debug=${debugFlags}` : ''}`);
+    await page.goto(
+      `${base}?shot=${shot}&time=${time}&quality=${quality}${debugFlags ? `&debug=${debugFlags}` : ''}${extraQuery ? `&${extraQuery}` : ''}`,
+    );
     await page.waitForFunction(() => window.__eukalpia?.ready && window.__eukalpia.frame >= 12, null, {
       timeout: 240000,
       polling: 500,
@@ -140,10 +189,20 @@ try {
       if (off(m.depthRatio, 0.1993) > 0.02)
         failures.push(`${shot}: UR-01 depth/height ${m.depthRatio} is not 0.199 ±2 %`);
     }
-    const file = join(
-      outDir,
-      `${shot}${timeOverride ? `-${timeOverride}` : ''}${debugFlags ? `-${debugFlags.replaceAll(',', '-')}` : ''}${quality === 'high' ? '' : `-${quality}`}.png`,
-    );
+    for (const step of uiSteps) await UI_STEPS[step](page);
+    // Panels and toasts fade in over a few frames.
+    if (uiSteps.length && uiSteps.at(-1) !== 'monolith') {
+      const at = await page.evaluate(() => window.__eukalpia.frame);
+      await page.waitForFunction(f => window.__eukalpia.frame >= f + 3, at, { timeout: 120000, polling: 200 });
+    }
+    const tag = [
+      timeOverride,
+      debugFlags?.replaceAll(',', '-'),
+      extraQuery?.replace(/[^a-z0-9-]+/gi, '-'),
+      uiSteps.filter(s => s !== 'settle').join('-'),
+      quality === 'high' ? '' : quality,
+    ].filter(Boolean);
+    const file = join(outDir, `${[shot, ...tag].join('-')}.png`);
     await page.screenshot({ path: file, timeout: 180000 });
     const s = await page.evaluate(() => window.__eukalpia.stats());
     s.seconds = Math.round((Date.now() - started) / 100) / 10;

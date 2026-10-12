@@ -1,3 +1,4 @@
+import type { PickTarget } from '../world/picking';
 import type { QualityTier, TimeOfDay } from './world';
 
 export type ShotName =
@@ -118,6 +119,8 @@ export interface DebugHandle {
     status(): { phase: string; samples: number; target: number } | null;
     triangles(): number;
   };
+  /** Delivers a click on this target to the interface, as a real click in the city would. */
+  pick?: (target: PickTarget) => void;
 }
 
 declare global {

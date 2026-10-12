@@ -149,10 +149,6 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   // The world follows the interface state.
   useEffect(() => world?.setTime(ui.night ? 'night' : 'day'), [world, ui.night]);
   useEffect(() => world?.setPaused?.(ui.paused), [world, ui.paused]);
-  useEffect(() => {
-    // Ending the tour happens in the world (a drag, a flight, photo mode); here it only starts.
-    if (ui.tour) world?.setTour?.(true);
-  }, [world, ui.tour]);
   useEffect(() => world?.setFly?.(ui.fly), [world, ui.fly]);
   const pixelSeen = useRef(false);
   useEffect(() => {
@@ -173,6 +169,12 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     // Only navigations move the camera; other sector changes come from the world itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world, ui.navigation]);
+  // After navigation: Start tour also navigates to the overview, and the world ends a tour whenever the
+  // camera flies, so the tour must start after that flight. Ending it happens in the world (a drag, a
+  // flight, photo mode); here it only starts.
+  useEffect(() => {
+    if (ui.tour) world?.setTour?.(true);
+  }, [world, ui.tour]);
 
   // v1's global keys.
   useEffect(() => {

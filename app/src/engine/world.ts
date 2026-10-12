@@ -25,6 +25,7 @@ import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
 import { createLift, liftColliders, planLift, type LiftStatus } from '../world/lift';
+import { focusDistance } from '../phototrace/focus';
 import { createPhotoSession, type PhotoStatus } from '../phototrace/session';
 import type { PhotoResult } from '../phototrace/support';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
@@ -66,6 +67,11 @@ export interface World {
     status(): PhotoStatus | null;
     /** Called with a message when photo mode ends on its own (e.g. a lost graphics context). */
     onError(fn: (message: string) => void): void;
+    /** Focus on whatever is under a point in normalised device coordinates. */
+    focusAt(ndcX: number, ndcY: number): void;
+    setAperture(fStop: number): void;
+    /** The next composited frame as a PNG. */
+    save(): Promise<Blob>;
   };
   resize(width: number, height: number): void;
   dispose(): void;
@@ -256,10 +262,12 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   let photoModule: typeof import('../phototrace/lazy') | null = null;
   let photoActive = false;
   const photoErrors: ((message: string) => void)[] = [];
+  const saves: { resolve(b: Blob): void; reject(e: Error): void }[] = [];
   const photo = createPhotoSession({
     renderer,
     camera,
     setInput: texture => post.setInput(texture),
+    setSamples: samples => post.setPhotoSamples(samples),
     loadTracer: async () => {
       photoModule ??= await import('../phototrace/lazy');
       return photoModule.createTracer(renderer);
@@ -335,6 +343,12 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       renderer.toneMappingExposure = PRESETS[currentTime].exposure;
       renderer.render(scene, camera);
     } else post.render(dt);
+    // A WebGL canvas can only be read in the frame it was drawn.
+    for (const s of saves.splice(0))
+      canvas.toBlob(
+        blob => (blob ? s.resolve(blob) : s.reject(new Error('The frame could not be saved.'))),
+        'image/png',
+      );
     debug.frame += 1;
     if (debug.frame >= 2) debug.ready = true;
     // Frame time is the real interval between frames, so GPU-bound slowness is included.
@@ -378,6 +392,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       exit: () => photo.exit(),
       status: () => photo.status(),
       onError: fn => void photoErrors.push(fn),
+      focusAt: (x, y) => photo.setFocus(focusDistance(collision, camera, x, y)),
+      setAperture: f => photo.setAperture(f),
+      save: () => new Promise<Blob>((resolve, reject) => saves.push({ resolve, reject })),
     },
     dispose() {
       disposed = true;

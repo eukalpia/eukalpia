@@ -156,3 +156,28 @@ test('a worker that cannot start is reported as such, not as a build error', asy
   });
   expect(await session.enter()).toEqual({ ok: false, message: PHOTO_MESSAGES.noWorker });
 });
+
+test('focus and aperture restart accumulation, within sane limits', async () => {
+  const { session, tracer } = harness();
+  await session.enter();
+  for (let i = 0; i < 20; i++) session.frame();
+  session.setFocus(20);
+  expect(session.camera!.focusDistance).toBe(20);
+  expect(tracer.samples).toBe(0);
+  session.setFocus(Infinity);
+  expect(session.camera!.focusDistance).toBe(10000);
+  session.setAperture(2.8);
+  expect(session.camera!.fStop).toBe(2.8);
+  session.setAperture(0.5);
+  expect(session.camera!.fStop).toBe(1.4);
+  session.setAperture(64);
+  expect(session.camera!.fStop).toBe(16);
+});
+
+test('the denoiser hears how many samples there are', async () => {
+  const seen: number[] = [];
+  const { session } = harness({ setSamples: n => seen.push(n) });
+  await session.enter();
+  for (let i = 0; i < 3; i++) session.frame();
+  expect(seen).toEqual([1, 2, 3]);
+});

@@ -1,5 +1,22 @@
-import { MeshStandardMaterial } from 'three';
+import { MeshStandardMaterial, Vector3 } from 'three';
 import type { TextureSet } from '../buildings/facadeMaterial';
+
+/**
+ * Whiteout triplanar normal blend (Ben Golus), mirrored from the shader so it can be tested.
+ * tx, ty, tz are tangent-space normals sampled on the YZ, XZ and XY planes.
+ */
+export function whiteoutBlend(n: Vector3, tx: Vector3, ty: Vector3, tz: Vector3): Vector3 {
+  const w = new Vector3(Math.abs(n.x) ** 4, Math.abs(n.y) ** 4, Math.abs(n.z) ** 4);
+  w.divideScalar(w.x + w.y + w.z);
+  const bx = new Vector3(tx.x + n.z, tx.y + n.y, Math.abs(tx.z) * n.x);
+  const by = new Vector3(ty.x + n.x, ty.y + n.z, Math.abs(ty.z) * n.y);
+  const bz = new Vector3(tz.x + n.x, tz.y + n.y, Math.abs(tz.z) * n.z);
+  return new Vector3(bx.z, bx.y, bx.x)
+    .multiplyScalar(w.x)
+    .add(new Vector3(by.x, by.z, by.y).multiplyScalar(w.y))
+    .add(bz.multiplyScalar(w.z))
+    .normalize();
+}
 
 /** Triplanar rock with depth darkening, strata tint and moss on ledges. */
 export function createRockMaterial(
@@ -67,9 +84,9 @@ export function createRockMaterial(
           vec3 ty = texture2D(tRockNorm, rP.xz).xyz * 2.0 - 1.0;
           vec3 tz = texture2D(tRockNorm, rP.xy).xyz * 2.0 - 1.0;
           // Whiteout-style blend of three tangent-space normals.
-          tx = vec3(tx.xy + rN.zy, abs(rN.x) * tx.z);
-          ty = vec3(ty.xy + rN.xz, abs(rN.y) * ty.z);
-          tz = vec3(tz.xy + rN.xy, abs(rN.z) * tz.z);
+          tx = vec3(tx.xy + rN.zy, abs(tx.z) * rN.x);
+          ty = vec3(ty.xy + rN.xz, abs(ty.z) * rN.y);
+          tz = vec3(tz.xy + rN.xy, abs(tz.z) * rN.z);
           vec3 nWorld = normalize(tx.zyx * rW.x + ty.xzy * rW.y + tz.xyz * rW.z);
           normal = normalize((viewMatrix * vec4(nWorld, 0.0)).xyz);
         }`,

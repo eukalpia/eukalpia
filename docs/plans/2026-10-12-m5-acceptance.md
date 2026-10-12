@@ -10,7 +10,7 @@
 |---|---|
 | `npm ci` | 114 пакетов |
 | `npm run lint` (tsc + prettier) | чисто |
-| `npm test` | 55 файлов, 386 тестов, все зелёные |
+| `npm test` | 55 файлов, 386 тестов, все зелёные (после финальных правок — 389) |
 | `npm run build` | готово, `.map` нет |
 | `node scripts/check-release.mjs dist ../public/profile-cover.svg` | «Release checked» |
 

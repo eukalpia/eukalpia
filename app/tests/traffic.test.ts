@@ -2,10 +2,12 @@ import { DISTRICTS } from '../src/content/districts';
 import { buildCity } from '../src/world/buildings/geometry';
 import { DEFAULT_SEED, createLayout } from '../src/world/layout';
 import { planClutter, signalState } from '../src/world/street/clutter';
+import { CAR_LAMP } from '../src/world/street/cars';
 import {
   CAR_HALF,
   carPose,
   createTrafficSim,
+  lightsGeometry,
   planSkyways,
   planTraffic,
   podPose,
@@ -148,5 +150,18 @@ test('cars turn around on the asphalt, not on the rim promenade', () => {
       [r.street.bx, r.street.bz],
     ])
       expect(Math.hypot(end[0] - island.cx, end[1] - island.cz)).toBeLessThanOrEqual(island.radius - 14);
+  }
+});
+
+test('head and tail glow sits on the car lamp lenses, inside the body outline', () => {
+  for (const front of [true, false]) {
+    const g = lightsGeometry(front);
+    g.computeBoundingBox();
+    const box = g.boundingBox!;
+    expect(box.min.y).toBeGreaterThanOrEqual(CAR_LAMP.y0 - 1e-6);
+    expect(box.max.y).toBeLessThanOrEqual(CAR_LAMP.y1 + 1e-6);
+    expect(box.max.z).toBeLessThanOrEqual(CAR_LAMP.z1 + 1e-6);
+    expect(front ? box.min.x : -box.max.x).toBeGreaterThan(2.2);
+    expect(front ? box.max.x : -box.min.x).toBeLessThan(2.25);
   }
 });

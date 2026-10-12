@@ -18,7 +18,8 @@ import type { CityLayout, Street } from '../layout';
 import { mulberry32, range, int, type Rng } from '../rng';
 import { streetRect } from '../ground/groundMask';
 import { signalState, type Crossing } from './clutter';
-import { CAR_COLORS, type StreetMeshes } from './meshes';
+import { CAR_LAMP, carKindFor, createCarFleet } from './cars';
+import { CAR_COLORS } from './meshes';
 
 export interface Route {
   street: Street;
@@ -336,24 +337,33 @@ export function podPose(way: Skyway, index: number, t: number): { x: number; y: 
 
 export interface Traffic {
   group: Group;
-  /** Advances cars by dt; t is the shared street clock the signals run on. */
-  update(dt: number, t: number): void;
+  /** Advances cars by dt; t is the shared street clock the signals run on; camera picks detailed bodies. */
+  update(dt: number, t: number, camera?: Vector3): void;
   setNight(night: boolean): void;
   dispose(): void;
 }
 
-function lightsGeometry(front: boolean): BufferGeometry {
+export function lightsGeometry(front: boolean): BufferGeometry {
   const b = new MeshBuilder();
-  const x = front ? 2.2 : -2.2;
-  const d = front ? 0.04 : -0.04;
-  for (const z of [-0.7, 0.7]) b.box(Math.min(x, x + d), 0.68, z - 0.16, Math.max(x, x + d), 0.82, z + 0.16, true);
+  // Just proud of the lamp lenses on the nose and tail.
+  const x0 = 2.205;
+  const [a, c] = front ? [x0, x0 + 0.03] : [-x0 - 0.03, -x0];
+  for (const s of [-1, 1])
+    b.box(
+      a,
+      CAR_LAMP.y0,
+      Math.min(s * CAR_LAMP.z0, s * CAR_LAMP.z1),
+      c,
+      CAR_LAMP.y1,
+      Math.max(s * CAR_LAMP.z0, s * CAR_LAMP.z1),
+      true,
+    );
   return b.build();
 }
 
 export function createTraffic(
   layout: CityLayout,
   specs: readonly BuildingSpec[],
-  street: StreetMeshes,
   ctx: { sun: SunRig; cars: number; crossings: readonly Crossing[]; tier: QualityTier },
 ): Traffic {
   const group = new Group();
@@ -363,11 +373,11 @@ export function createTraffic(
   const ways = planSkyways(layout.seed, specs);
   const islandY = (r: Route) => layout.islands.find(i => i.id === r.street.islandId)!.topY;
 
-  const { body, glass, wheels } = street.carGeometry;
-  const mats = street.carMaterials;
-  const bodies = new InstancedMesh(body, mats.body, routes.length);
-  const glasses = new InstancedMesh(glass, mats.glass, routes.length);
-  const tyres = new InstancedMesh(wheels, mats.wheels, routes.length);
+  const casts = TIER_SETTINGS[ctx.tier].shadowCasters.has('vehicle');
+  const fleet = createCarFleet(
+    routes.map((r, i) => ({ kind: carKindFor(i, true), color: r.color, matrix: new Matrix4() })),
+    { castShadow: casts, setup: m => ctx.sun.setupMaterial(m as MeshStandardMaterial) },
+  );
   const headGeo = lightsGeometry(true);
   const tailGeo = lightsGeometry(false);
   const headMat = new MeshStandardMaterial({
@@ -380,14 +390,7 @@ export function createTraffic(
   const tailMat = new MeshBasicMaterial({ color: 0xffffff });
   const heads = new InstancedMesh(headGeo, headMat, routes.length);
   const tails = new InstancedMesh(tailGeo, tailMat, routes.length);
-  const color = new Color();
-  routes.forEach((r, i) => bodies.setColorAt(i, color.set(r.color)));
-  const casts = TIER_SETTINGS[ctx.tier].shadowCasters.has('vehicle');
-  for (const m of [bodies, glasses, tyres]) {
-    m.castShadow = casts;
-    m.receiveShadow = true;
-  }
-  group.add(bodies, glasses, tyres, heads, tails);
+  group.add(...fleet.meshes, heads, tails);
 
   const podCount = ways.reduce((n, w) => n + w.phases.length, 0);
   const podGeo = new CapsuleGeometry(1.1, 4.2, 6, 12).rotateZ(Math.PI / 2);
@@ -409,6 +412,7 @@ export function createTraffic(
   const one = new Vector3(1, 1, 1);
   let t = 0;
   let night = false;
+  const viewer = new Vector3();
   const tailColor = new Color();
   function place() {
     sim.cars.forEach((car, i) => {
@@ -417,9 +421,7 @@ export function createTraffic(
       m.compose(p.set(pose.x, islandY(r), pose.z), q.setFromAxisAngle(up, pose.rotY), one);
       const glow = car.braking ? (night ? 9 : 4) : night ? 2.2 : 0.08;
       tails.setColorAt(i, tailColor.setRGB(glow, glow * 0.04, glow * 0.025));
-      bodies.setMatrixAt(i, m);
-      glasses.setMatrixAt(i, m);
-      tyres.setMatrixAt(i, m);
+      fleet.setMatrix(i, m);
       heads.setMatrixAt(i, m);
       tails.setMatrixAt(i, m);
     });
@@ -432,7 +434,8 @@ export function createTraffic(
         strips.setMatrixAt(k, m);
       }
     if (tails.instanceColor) tails.instanceColor.needsUpdate = true;
-    for (const mesh of [bodies, glasses, tyres, heads, tails, pods, strips]) {
+    fleet.update(viewer);
+    for (const mesh of [heads, tails, pods, strips]) {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.computeBoundingSphere();
     }
@@ -441,8 +444,9 @@ export function createTraffic(
 
   return {
     group,
-    update(dt, clock) {
+    update(dt, clock, camera) {
       t += dt;
+      if (camera) viewer.copy(camera);
       sim.step(dt, clock);
       place();
     },
@@ -453,6 +457,7 @@ export function createTraffic(
       place();
     },
     dispose() {
+      fleet.dispose();
       for (const g of [headGeo, tailGeo, podGeo, strip]) g.dispose();
       for (const mat of [headMat, tailMat, podMat, stripMat]) mat.dispose();
     },

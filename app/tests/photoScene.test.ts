@@ -179,3 +179,29 @@ test('city meshes tell the photo builder what they are', async () => {
   expect(roles.get('Roof')).toBe('roof');
   city.dispose();
 });
+
+test('cars are split into paint, glass, tyres, chrome and lenses for the path tracer', async () => {
+  const { createCarFleet } = await import('../src/world/street/cars');
+  const fleet = createCarFleet([{ kind: 'sedan', color: 0xaa2222, matrix: new Matrix4() }], { castShadow: false });
+  fleet.update(new Vector3());
+  const group = new Group();
+  group.add(...fleet.meshes);
+  const out = meshes(buildPhotoScene([group], options()).scene);
+  const byName = (part: string) => out.find(m => m.name.endsWith(`:${part}`));
+  for (const part of ['paint', 'glass', 'tyre', 'chrome', 'lens', 'plate', 'tail'])
+    expect(byName(part), part).toBeTruthy();
+  // Number plates are matte, light and not metal.
+  const plate = byName('plate')!.material as MeshStandardMaterial;
+  expect(plate.color.r).toBeGreaterThan(0.6);
+  expect(plate.metalness).toBe(0);
+  expect(plate.roughness).toBeGreaterThan(0.3);
+  const tail = byName('tail')!.material as MeshStandardMaterial;
+  expect(tail.color.r).toBeGreaterThan(tail.color.g * 5);
+  const glass = byName('glass')!.material as MeshStandardMaterial;
+  expect(glass.roughness).toBeLessThan(0.1);
+  const paint = byName('paint')!.material as MeshStandardMaterial;
+  expect(paint.vertexColors).toBe(true);
+  const c = byName('paint')!.geometry.getAttribute('color');
+  expect(c.getX(0)).toBeGreaterThan(c.getZ(0));
+  fleet.dispose();
+});

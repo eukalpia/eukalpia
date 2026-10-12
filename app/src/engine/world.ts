@@ -54,6 +54,10 @@ export interface World {
   /** Switches between the orbit overview and walking with UR-01; false if walking is not available yet. */
   setMode(mode: WorldMode): boolean;
   mode(): WorldMode;
+  /** Tells the interface when the mode changes, whoever changed it (button, Esc, ?sector=street). */
+  onModeChange(fn: (mode: WorldMode) => void): void;
+  /** Whether UR-01 can walk yet. */
+  walkState(): 'loading' | 'ready' | 'failed';
   /** The LMS lift as seen from where UR-01 stands; null while not walking. */
   liftStatus(): LiftStatus | null;
   photo: {
@@ -153,14 +157,20 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
         spawn: new Vector3(CHARACTER_SPAWN.x, layout.islands[0].topY, CHARACTER_SPAWN.z),
       });
       walk.onAction(a => a === 'exit' && setMode('orbit'));
+      walkState = 'ready';
       walk.onAction(a => a === 'transit' && lift.press(walk!.controller.position));
       if (opts.sector === 'street' && !opts.shot) setMode('walk');
     })
-    .catch(error => console.warn(String(error)));
+    .catch(error => {
+      walkState = 'failed';
+      console.warn(String(error));
+    });
   let character: Awaited<ReturnType<typeof loadCharacter>> | null = null;
   let walk: Walk | null = null;
   let disposed = false;
   let mode: WorldMode = 'orbit';
+  let walkState: 'loading' | 'ready' | 'failed' = 'loading';
+  const modeListeners: ((mode: WorldMode) => void)[] = [];
   function setMode(next: WorldMode): boolean {
     if (next === 'walk' && !walk) return false;
     if (next === mode) return true;
@@ -179,6 +189,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     }
     camera.updateProjectionMatrix();
     sun.csm.updateFrustums();
+    for (const fn of modeListeners) fn(mode);
     return true;
   }
 
@@ -298,7 +309,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     const rawDt = timer.getDelta();
     const dt = Math.min(rawDt, 0.1);
     const street = photoActive ? 0 : dt;
-    lift.update(street, walk?.active ? walk.controller : undefined);
+    // The lift carries UR-01 even outside walk mode, so leaving mid-ride never strands them in the shaft.
+    lift.update(street, walk?.controller);
     if (photoActive) {
       if (!walk?.active) orbit.update(dt);
     } else if (walk?.active) walk.update(dt);
@@ -358,6 +370,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     setTime,
     setMode,
     mode: () => mode,
+    onModeChange: fn => void modeListeners.push(fn),
+    walkState: () => walkState,
     liftStatus: () => (walk?.active ? lift.status(walk.controller.position) : null),
     photo: {
       enter: () => photo.enter(),

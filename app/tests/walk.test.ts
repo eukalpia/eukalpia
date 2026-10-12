@@ -8,6 +8,7 @@ import { fakeDom } from './helpers';
 test('releasing focus clears held keys', () => {
   const target = fakeDom();
   const input = createInput(target as never);
+  input.setEnabled(true);
   target.dispatch('keydown', { code: 'KeyW', key: 'w' });
   target.dispatch('keydown', { code: 'ShiftLeft', key: 'Shift' });
   expect(input.state().forward).toBe(1);
@@ -21,8 +22,28 @@ test('releasing focus clears held keys', () => {
 test('typing in a text field does not move the character', () => {
   const target = fakeDom();
   const input = createInput(target as never);
+  input.setEnabled(true);
   target.dispatch('keydown', { code: 'KeyW', key: 'w', target: { tagName: 'INPUT' } });
   expect(input.state().forward).toBe(0);
+  input.dispose();
+});
+
+test('outside walk mode, keys are left to the page (Space still presses buttons)', () => {
+  const target = fakeDom();
+  const input = createInput(target as never);
+  let prevented = 0;
+  const press = (code: string) => target.dispatch('keydown', { code, key: code, preventDefault: () => prevented++ });
+  press('Space');
+  press('KeyW');
+  expect(prevented).toBe(0);
+  expect(input.state().forward).toBe(0);
+  expect(input.takeJump()).toBe(false);
+  input.setEnabled(true);
+  press('Space');
+  expect(prevented).toBe(1);
+  input.setEnabled(false);
+  press('ArrowUp');
+  expect(prevented).toBe(1);
   input.dispose();
 });
 

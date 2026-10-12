@@ -97,7 +97,6 @@ const AMBER = 3;
 const ALL_RED = 0.5;
 const POLE_FROM_KERB = 1.2;
 const FASCIA_OUT = 0.36;
-const PROMENADE = 14;
 
 export type Light = 'green' | 'amber' | 'red';
 
@@ -128,7 +127,8 @@ function planCrossings(layout: CityLayout, rng: Rng): Crossing[] {
         Math.abs(x - island.cx) + v.s.width / 2 + 3,
         Math.abs(z - island.cz) + h.s.width / 2 + 3,
       );
-      if (reach > island.radius - PROMENADE) continue;
+      // Poles may stand on the promenade paving, but not past the rim railing.
+      if (reach > island.radius - 2) continue;
       out.push({
         islandId: island.id,
         x,

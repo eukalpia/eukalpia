@@ -16,6 +16,7 @@ import { MeshBuilder } from '../buildings/geometry';
 import type { BuildingSpec } from '../buildings/massing';
 import type { CityLayout, Street } from '../layout';
 import { mulberry32, range, int, type Rng } from '../rng';
+import { streetRect } from '../ground/groundMask';
 import { signalState, type Crossing } from './clutter';
 import { CAR_COLORS, type StreetMeshes } from './meshes';
 
@@ -33,10 +34,50 @@ function length(s: Street) {
   return Math.hypot(s.bx - s.ax, s.bz - s.az);
 }
 
+/** The asphalt ends this far inside the rim (the promenade beyond is paving). */
+const PROMENADE = 14;
+/** Room a car needs before a crossing to stop, plus its own length. */
+const CROSSING_CLEARANCE = 12;
+
+/**
+ * The drivable part of a street: on the asphalt, and ending before any crossing too close to the end
+ * to stop for, so cars turn around before a junction rather than inside one.
+ */
+export function drivable(street: Street, layout: CityLayout): Street {
+  const island = layout.islands.find(i => i.id === street.islandId)!;
+  const len = length(street);
+  const ux = (street.bx - street.ax) / len;
+  const uz = (street.bz - street.az) / len;
+  // Distance along the street from its centre point (the closest approach to the island centre).
+  const mx = (street.ax + street.bx) / 2;
+  const mz = (street.az + street.bz) / 2;
+  const off = Math.hypot(mx - island.cx, mz - island.cz) + street.width / 2;
+  const asphalt = island.radius - PROMENADE - 1;
+  let half = Math.min(len / 2, off < asphalt ? Math.sqrt(asphalt * asphalt - off * off) : 0);
+  for (const o of layout.streets) {
+    if (o.islandId !== street.islandId || o === street) continue;
+    const r = streetRect(o);
+    const vertical = Math.abs(street.ax - street.bx) < 1e-6;
+    if (r.vertical === vertical) continue;
+    const along = Math.abs(vertical ? r.center - mz : r.center - mx);
+    const near = along - o.width / 2 - CROSSING_CLEARANCE;
+    const far = along + o.width / 2;
+    // A crossing reaching past the asphalt end: stop the street short of it.
+    if (far > half && near < half) half = Math.max(0, near);
+  }
+  return {
+    ...street,
+    ax: mx - ux * half,
+    az: mz - uz * half,
+    bx: mx + ux * half,
+    bz: mz + uz * half,
+  };
+}
+
 /** Cars spread over the streets in proportion to their length, evenly spaced, one speed per street. */
 export function planTraffic(layout: CityLayout, count: number): Route[] {
   const rng = mulberry32(layout.seed ^ 0x7aff1c);
-  const streets = layout.streets.filter(s => length(s) > 40);
+  const streets = layout.streets.map(s => drivable(s, layout)).filter(s => length(s) > 40);
   const total = streets.reduce((sum, s) => sum + length(s), 0);
   const capacity = streets.map(s => Math.floor((2 * length(s)) / MIN_GAP));
   const wanted = streets.map((s, i) => Math.min(capacity[i], Math.round((count * length(s)) / total)));

@@ -1,12 +1,24 @@
 import type { BufferGeometry } from 'three';
 import { MeshBuilder } from '../buildings/geometry';
-import type { Bridge } from '../layout';
+import { BRIDGE_INSET, type Bridge } from '../layout';
 
 const DECK_THICKNESS = 1.4;
 const ARCH_HEIGHT = 16;
 const SEGMENTS = 24;
 
 /** A steel through-arch bridge: deck, two parabolic arches, hangers and railings. */
+/**
+ * Deck height at t ∈ [0, 1] along the bridge: level with each island inside its rim, then an eased
+ * climb or descent with a 3 m arch over the gap, so there is never a step to walk into.
+ */
+export function bridgeDeckY(b: Bridge, t: number): number {
+  const len = Math.hypot(b.bx - b.ax, b.bz - b.az);
+  const rim = BRIDGE_INSET / len;
+  const s = Math.min(1, Math.max(0, (t - rim) / (1 - 2 * rim)));
+  const ease = s * s * (3 - 2 * s);
+  return b.ay + (b.by - b.ay) * ease + Math.sin(Math.PI * s) * 3;
+}
+
 export function buildBridge(b: Bridge): BufferGeometry {
   const builder = new MeshBuilder();
   const dx = b.bx - b.ax;
@@ -18,7 +30,7 @@ export function buildBridge(b: Bridge): BufferGeometry {
   const sz = ux;
   const half = b.width / 2;
   // Deck rises gently between the two islands.
-  const deckY = (t: number) => b.ay + (b.by - b.ay) * t + Math.sin(Math.PI * t) * 3;
+  const deckY = (t: number) => bridgeDeckY(b, t);
   const at = (t: number, s: number, y: number): [number, number, number] => [
     b.ax + dx * t + sx * s,
     y,

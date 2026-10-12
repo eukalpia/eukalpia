@@ -78,6 +78,8 @@ const MONOLITH_FOOTPRINT = 46;
 const LANDMARK_MIN_SIDE = 24;
 const LANDMARK_RING: [number, number] = [70, 210];
 const BRIDGE_WIDTH = 12;
+/** Bridges start this far inside each island's rim, so their ends are hidden under the ground. */
+export const BRIDGE_INSET = 6;
 
 interface Interval {
   kind: 'block' | 'street';
@@ -367,12 +369,12 @@ function createBridges(islands: Island[]): Bridge[] {
     return {
       from: main.id,
       to: sat.id,
-      ax: ux * (main.radius - 6),
+      ax: ux * (main.radius - BRIDGE_INSET),
       ay: main.topY,
-      az: uz * (main.radius - 6),
-      bx: sat.cx - ux * (sat.radius - 6),
+      az: uz * (main.radius - BRIDGE_INSET),
+      bx: sat.cx - ux * (sat.radius - BRIDGE_INSET),
       by: sat.topY,
-      bz: sat.cz - uz * (sat.radius - 6),
+      bz: sat.cz - uz * (sat.radius - BRIDGE_INSET),
       width: BRIDGE_WIDTH,
     };
   });

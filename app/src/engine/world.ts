@@ -22,6 +22,7 @@ import { createClutterMeshes } from '../world/street/clutterMeshes';
 import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
 import { upgradeCharacterMaterials } from '../character/materials';
+import { createPresence, type Presence } from '../character/presence';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
@@ -156,6 +157,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       for (const m of model.skinned) sun.setupMaterial(m.material as MeshStandardMaterial);
       scene.add(model.root);
       character = model;
+      presence = createPresence(model, { tier: opts.quality });
+      scene.add(presence.group);
       debug.character = () => measureBindPose(model);
       walk = createWalk({
         camera,
@@ -174,6 +177,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       console.warn(String(error));
     });
   let character: Awaited<ReturnType<typeof loadCharacter>> | null = null;
+  let presence: Presence | null = null;
   let walk: Walk | null = null;
   let disposed = false;
   let mode: WorldMode = 'orbit';
@@ -340,6 +344,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     traffic.update(street, streetClock);
     clutter.update(streetClock);
     updateStreetLights(currentTime === 'night');
+    presence?.update(camera, currentTime === 'night');
     sun.update();
     photo.frame();
     renderer.info.reset();
@@ -405,6 +410,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       disposed = true;
       walk?.dispose();
       character?.dispose();
+      presence?.dispose();
       document.removeEventListener('visibilitychange', syncLoop);
       timer.dispose();
       renderer.setAnimationLoop(null);

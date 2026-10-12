@@ -30,10 +30,32 @@ export interface DeviceInfo {
 }
 
 const INTEGRATED_GPU = /intel|uhd|iris|mali|adreno|powervr/i;
+/** Base Apple silicon (M1/M2 without Pro, Max or Ultra) has integrated-class GPU throughput. */
+const BASE_APPLE_SILICON = /Apple M[12](?![\w ]*(Pro|Max|Ultra))/;
+
+export interface BrowserEnvironment {
+  userAgent: string;
+  maxTouchPoints: number;
+  hardwareConcurrency: number;
+  renderer: string;
+  screenArea: number;
+}
+
+/** Turns what the browser reports into DeviceInfo. iPadOS reports a desktop Mac UA but has touch. */
+export function readDeviceInfo(env: BrowserEnvironment): DeviceInfo {
+  const mobileUa = /Android|iPhone|iPad|iPod|Mobile/i.test(env.userAgent);
+  const touchMac = /Macintosh/.test(env.userAgent) && env.maxTouchPoints > 1;
+  return {
+    mobile: mobileUa || touchMac,
+    cores: env.hardwareConcurrency || 4,
+    renderer: env.renderer,
+    screenArea: env.screenArea,
+  };
+}
 
 export function detectTier(info: DeviceInfo): QualityTier {
   if (info.mobile) return 'low';
-  if (INTEGRATED_GPU.test(info.renderer) || info.cores < 6) return 'medium';
+  if (INTEGRATED_GPU.test(info.renderer) || BASE_APPLE_SILICON.test(info.renderer) || info.cores < 6) return 'medium';
   return 'high';
 }
 

@@ -61,10 +61,12 @@ export function createTerrain(
     rock.castShadow = TIER_SETTINGS[ctx.tier].shadowCasters.has('rock');
     rock.receiveShadow = true;
     rock.name = `rock:${island.id}`;
+    rock.userData.photo = 'rock';
     const roots = new Mesh(buildRoots(island, rng), rootMaterial);
     roots.castShadow = TIER_SETTINGS[ctx.tier].shadowCasters.has('rock');
     roots.receiveShadow = true;
     roots.name = `roots:${island.id}`;
+    roots.userData.photo = 'rock';
 
     const size = island.id === 'main' ? (ctx.tier === 'low' ? 1024 : 2048) : 512;
     const mask = new DataTexture(rasterizeGround(layout, island.id, size), size, size, RGBAFormat);
@@ -89,11 +91,14 @@ export function createTerrain(
     );
     ground.receiveShadow = true;
     ground.name = `ground:${island.id}`;
+    ground.userData.photo = 'ground';
+    ground.userData.island = island.id;
 
     const falls = buildWaterfalls(island, rng, layout.bridges);
     const waterfalls = new Mesh(falls.geometry, waterfallMaterial);
     waterfalls.renderOrder = 5;
     waterfalls.name = `waterfalls:${island.id}`;
+    waterfalls.userData.photo = 'skip';
 
     geometries.push(rock.geometry, roots.geometry, ground.geometry, falls.geometry);
     group.add(rock, roots, ground, waterfalls);

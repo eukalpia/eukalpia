@@ -164,6 +164,8 @@ export function createCityMeshes(
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.name = `${chunk.key}:${material.name}`;
+      // Photo mode bakes these shader-driven looks into textures and vertex colours.
+      mesh.userData.photo = material === facade ? 'facade' : material === trim ? 'trim' : 'roof';
       group.add(mesh);
       geometries.push(geometry);
     }

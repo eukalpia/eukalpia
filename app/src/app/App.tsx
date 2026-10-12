@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createWorld, type QualityTier, type TimeOfDay, type World } from '../engine/world';
 import type { DebugFlag, ShotName } from '../engine/debug';
+import { PhotoPanel } from './PhotoPanel';
 import type { Sector } from './url';
 
 export interface AppProps {
@@ -28,6 +29,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   const [postcard, setPostcard] = useState(!webgl2);
   const [time, setTime] = useState<TimeOfDay>(initialTime);
   const [walking, setWalking] = useState(false);
+  const [world, setWorld] = useState<World | null>(null);
   // The world may still be loading when the visitor toggles Day/Night; apply the latest choice once it exists.
   const timeRef = useRef(time);
   timeRef.current = time;
@@ -40,6 +42,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       .then(world => {
         if (disposed) return world.dispose();
         worldRef.current = world;
+        setWorld(world);
         if (timeRef.current !== initialTime) world.setTime(timeRef.current);
         // Esc, ?sector=street and the lift can change the mode without the button.
         world.onModeChange?.(mode => setWalking(mode === 'walk'));
@@ -55,6 +58,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       window.removeEventListener('resize', onResize);
       worldRef.current?.dispose();
       worldRef.current = null;
+      setWorld(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quality, initialTime, shot, reducedMotion, postcard]);
@@ -109,6 +113,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       >
         {walking ? 'ORBIT' : 'WALK'}
       </button>
+      <PhotoPanel world={world} canvas={canvasRef.current} />
       {(notice ?? liftHint) && (
         <p className="world-hint" role="status">
           {notice ?? liftHint}

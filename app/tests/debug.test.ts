@@ -15,3 +15,8 @@ test('ignores unknown values', () => {
 test('parses known debug flags and drops unknown ones', () => {
   expect(parseShotParams('?debug=nofog,noreflect,bogus').debug).toEqual(['nofog', 'noreflect']);
 });
+
+test('street shots are recognised', () => {
+  expect(parseShotParams('?shot=street-night').shot).toBe('street-night');
+  expect(parseShotParams('?shot=street-day').shot).toBe('street-day');
+});

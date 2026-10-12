@@ -2,15 +2,12 @@ import {
   CircleGeometry,
   DataTexture,
   Group,
-  InstancedMesh,
   LinearFilter,
   LinearMipmapLinearFilter,
-  Matrix4,
   Mesh,
   MeshStandardMaterial,
   RedFormat,
   RGBAFormat,
-  SphereGeometry,
   type BufferGeometry,
   type Material,
 } from 'three';
@@ -25,9 +22,13 @@ import { createRockMaterial } from './islands/rockMaterial';
 import { buildWaterfalls, createWaterfallMaterial } from './islands/waterfall';
 import type { CityLayout } from './layout';
 import { fork, mulberry32 } from './rng';
+import { planFurniture, type FurniturePlan } from './street/furniture';
+import { createStreetMeshes, type StreetMeshes } from './street/meshes';
 
 export interface Terrain {
   group: Group;
+  furniture: FurniturePlan;
+  street: StreetMeshes;
   setNight(night: boolean): void;
   update(seconds: number): void;
   dispose(): void;
@@ -107,25 +108,17 @@ export function createTerrain(
     group.add(bridge);
   }
 
-  const lampMaterial = new MeshStandardMaterial({ color: 0x111111, emissive: 0xffb36b, emissiveIntensity: 0 });
-  materials.push(lampMaterial);
-  const bulb = new SphereGeometry(0.35, 8, 6);
-  geometries.push(bulb);
-  const bulbs = new InstancedMesh(bulb, lampMaterial, lamps.length / 3);
-  const m = new Matrix4();
-  for (let i = 0; i < lamps.length / 3; i++)
-    bulbs.setMatrixAt(i, m.makeTranslation(lamps[i * 3], lamps[i * 3 + 1], lamps[i * 3 + 2]));
-  bulbs.computeBoundingSphere();
-  bulbs.name = 'lamps';
-  bulbs.visible = false;
-  group.add(bulbs);
+  const furniture = planFurniture(layout, ctx.tier);
+  const street = createStreetMeshes(furniture, { sun: ctx.sun, tier: ctx.tier });
+  group.add(street.group);
 
   return {
     group,
+    furniture,
+    street,
     setNight(night) {
       for (const g of grounds) g.uniforms.uNight.value = night ? 1 : 0;
-      lampMaterial.emissiveIntensity = night ? 8 : 0;
-      bulbs.visible = night;
+      street.setNight(night);
       waterfallMaterial.uniforms.uLight.value = night ? 0.12 : 1;
     },
     update(seconds) {
@@ -135,6 +128,7 @@ export function createTerrain(
       for (const g of geometries) g.dispose();
       for (const mat of materials) mat.dispose();
       for (const t of textures) t.dispose();
+      street.dispose();
     },
   };
 }

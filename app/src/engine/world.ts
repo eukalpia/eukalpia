@@ -4,6 +4,7 @@ import {
   NoToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
+  PointLight,
   Scene,
   Vector3,
   WebGLRenderer,
@@ -82,6 +83,36 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
 
+  // At night the eight lamps nearest to the camera are real lights; the rest glow via the baked ground mask.
+  const streetLights = Array.from({ length: 8 }, () => {
+    const light = new PointLight(0xffb978, 0, 28, 2);
+    scene.add(light);
+    return light;
+  });
+  const lampHeads = terrain.street.lampHeads;
+  const nearest: { i: number; d: number }[] = [];
+  function updateStreetLights(night: boolean) {
+    if (!night) {
+      for (const l of streetLights) l.intensity = 0;
+      return;
+    }
+    nearest.length = 0;
+    const c = camera.position;
+    for (let i = 0; i < lampHeads.length / 3; i++) {
+      const dx = lampHeads[i * 3] - c.x;
+      const dy = lampHeads[i * 3 + 1] - c.y;
+      const dz = lampHeads[i * 3 + 2] - c.z;
+      nearest.push({ i, d: dx * dx + dy * dy + dz * dz });
+    }
+    nearest.sort((a, b) => a.d - b.d);
+    streetLights.forEach((light, k) => {
+      const lamp = nearest[k];
+      if (!lamp) return (light.intensity = 0);
+      light.position.set(lampHeads[lamp.i * 3], lampHeads[lamp.i * 3 + 1] - 0.3, lampHeads[lamp.i * 3 + 2]);
+      light.intensity = 40;
+    });
+  }
+
   // Glass reflects a capture of the city taken from the ring-avenue crossing next to the monolith.
   const reflectionPoint = new Vector3(56, 60, 56);
   let reflection: { texture: Texture; dispose(): void } | null = null;
@@ -128,6 +159,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     city.update(dt);
     clouds.update(clock.elapsedTime);
     terrain.update(clock.elapsedTime);
+    updateStreetLights(currentTime === 'night');
     sun.update();
     renderer.info.reset();
     if (flags.has('nopost')) {

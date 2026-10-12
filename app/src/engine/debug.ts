@@ -1,8 +1,15 @@
 import type { QualityTier, TimeOfDay } from './world';
 
-export type ShotName = 'orbit-day' | 'orbit-night' | 'underside' | 'skyline';
+export type ShotName = 'orbit-day' | 'orbit-night' | 'underside' | 'skyline' | 'street-day' | 'street-night';
 
-const SHOT_NAMES: readonly ShotName[] = ['orbit-day', 'orbit-night', 'underside', 'skyline'];
+const SHOT_NAMES: readonly ShotName[] = [
+  'orbit-day',
+  'orbit-night',
+  'underside',
+  'skyline',
+  'street-day',
+  'street-night',
+];
 const TIMES: readonly TimeOfDay[] = ['day', 'night'];
 const TIERS: readonly QualityTier[] = ['high', 'medium', 'low'];
 

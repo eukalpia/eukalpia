@@ -84,7 +84,13 @@ export function createPost(
     luminanceSmoothing: 0.2,
   });
   if (flags.has('nobloom')) bloom.intensity = 0;
-  composer.addPass(new EffectPass(camera, bloom, new ToneMappingEffect({ mode: ToneMappingMode.AGX })));
+  // ACES Filmic: photographic contrast (AgX lifted every dark into grey haze); the flags keep the A/B.
+  const toneMode = flags.has('tm-aces')
+    ? ToneMappingMode.ACES_FILMIC
+    : flags.has('tm-neutral')
+      ? ToneMappingMode.NEUTRAL
+      : ToneMappingMode.ACES_FILMIC;
+  composer.addPass(new EffectPass(camera, bloom, new ToneMappingEffect({ mode: toneMode })));
   const noise = new NoiseEffect({ premultiply: true });
   noise.blendMode.opacity.value = 0.035;
   composer.addPass(

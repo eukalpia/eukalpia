@@ -11,7 +11,9 @@ export type ShotName =
   | 'lms-lift'
   | 'lms-roof'
   | 'character-front'
-  | 'character-side';
+  | 'character-side'
+  | 'character-closeup'
+  | 'character-three-quarter';
 
 const SHOT_NAMES: readonly ShotName[] = [
   'orbit-day',
@@ -25,12 +27,25 @@ const SHOT_NAMES: readonly ShotName[] = [
   'lms-roof',
   'character-front',
   'character-side',
+  'character-closeup',
+  'character-three-quarter',
 ];
 const TIMES: readonly TimeOfDay[] = ['day', 'night'];
 const TIERS: readonly QualityTier[] = ['high', 'medium', 'low'];
 
 /** Look-dev switches that turn one subsystem off at a time. */
-export type DebugFlag = 'nofog' | 'noreflect' | 'nopost' | 'noclouds' | 'noshadow' | 'nobloom' | 'noao' | 'walkcycle';
+export type DebugFlag =
+  | 'nofog'
+  | 'noreflect'
+  | 'nopost'
+  | 'noclouds'
+  | 'noshadow'
+  | 'nobloom'
+  | 'noao'
+  | 'walkcycle'
+  // Tone-mapping A/B for look development.
+  | 'tm-aces'
+  | 'tm-neutral';
 const DEBUG_FLAGS: readonly DebugFlag[] = [
   'nofog',
   'noreflect',
@@ -39,6 +54,8 @@ const DEBUG_FLAGS: readonly DebugFlag[] = [
   'noshadow',
   'nobloom',
   'noao',
+  'tm-aces',
+  'tm-neutral',
   'walkcycle',
 ];
 

@@ -32,3 +32,22 @@ test('photo input rasterises for depth, then shows the traced image', () => {
   expect(pass.copyMaterial.depthWrite).toBe(false);
   pass.dispose();
 });
+
+test('the depth pass draws the city with one cheap material, then restores it', () => {
+  const scene = new Scene();
+  const pass = new PhotoInputPass(scene, new PerspectiveCamera());
+  const seen: unknown[] = [];
+  const renderer = {
+    autoClear: true,
+    setRenderTarget() {},
+    render(s: Scene) {
+      seen.push(s === scene ? s.overrideMaterial : 'copy');
+    },
+  };
+  pass.render(renderer as never, {} as never);
+  expect(seen[0]).not.toBeNull();
+  expect((seen[0] as { colorWrite: boolean }).colorWrite).toBe(false);
+  expect(seen[1]).toBe('copy');
+  expect(scene.overrideMaterial).toBeNull();
+  pass.dispose();
+});

@@ -15,6 +15,7 @@ import { DISTRICTS } from '../content/districts';
 import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../world/city';
 import { DEFAULT_SEED, createLayout } from '../world/layout';
 import { createTerrain } from '../world/terrain';
+import { createTraffic } from '../world/street/traffic';
 import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
 import { createWalk, type Walk } from '../character/walk';
@@ -91,6 +92,11 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
 
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
+  const traffic = createTraffic(layout, city.specs, terrain.street, {
+    sun,
+    cars: { high: 260, medium: 160, low: 60 }[opts.quality],
+  });
+  scene.add(traffic.group);
 
   // UR-01 waits on the sidewalk. A failed download only disables walking; the city keeps running.
   loadCharacter(opts.quality === 'low' ? 'mobile' : 'desktop', import.meta.env.BASE_URL)
@@ -185,6 +191,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     post.setPreset(flags.has('nofog') ? { ...preset, fogDensity: 0 } : preset, sunDir);
     city.setNight(time === 'night', preset.windowLitRatio);
     terrain.setNight(time === 'night');
+    traffic.setNight(time === 'night');
     sun.update();
     city.facade.envMap = null;
     reflection?.dispose();
@@ -219,6 +226,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     city.update(dt);
     post.clouds.update(timer.getElapsed());
     terrain.update(timer.getElapsed());
+    traffic.update(dt);
     updateStreetLights(currentTime === 'night');
     sun.update();
     renderer.info.reset();
@@ -275,6 +283,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       post.dispose();
       city.dispose();
       terrain.dispose();
+      traffic.dispose();
       reflection?.dispose();
       environment.dispose();
       renderer.dispose();

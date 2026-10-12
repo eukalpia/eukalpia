@@ -1,5 +1,6 @@
 import { Pass } from 'postprocessing';
 import {
+  MeshBasicMaterial,
   ShaderMaterial,
   type Camera,
   type Scene,
@@ -14,6 +15,8 @@ import {
  */
 export class PhotoInputPass extends Pass {
   readonly copyMaterial: ShaderMaterial;
+  /** Only depth matters here (the traced image replaces the colour): one cheap material for everything. */
+  private readonly depthOnly = new MeshBasicMaterial({ colorWrite: false });
   private readonly rasterScene: Scene;
   private readonly rasterCamera: Camera;
 
@@ -48,7 +51,10 @@ export class PhotoInputPass extends Pass {
     const autoClear = renderer.autoClear;
     renderer.setRenderTarget(this.renderToScreen ? null : inputBuffer);
     renderer.autoClear = true;
+    const override = this.rasterScene.overrideMaterial;
+    this.rasterScene.overrideMaterial = this.depthOnly;
     renderer.render(this.rasterScene, this.rasterCamera);
+    this.rasterScene.overrideMaterial = override;
     renderer.autoClear = false;
     renderer.render(this.scene, this.camera);
     renderer.autoClear = autoClear;
@@ -56,6 +62,7 @@ export class PhotoInputPass extends Pass {
 
   override dispose() {
     this.copyMaterial.dispose();
+    this.depthOnly.dispose();
     super.dispose();
   }
 }

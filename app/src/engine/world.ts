@@ -294,6 +294,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       // Walking freezes while tracing; the orbit camera still moves (and restarts accumulation).
       walk?.input.clear();
       if (active) orbit.stopTour();
+      // The raster frame only supplies depth while tracing: no need to redraw the shadow cascades.
+      renderer.shadowMap.autoUpdate = !active;
+      renderer.shadowMap.needsUpdate = !active;
     },
     onError: message => photoErrors.forEach(fn => fn(message)),
   });

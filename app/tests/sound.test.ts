@@ -64,3 +64,23 @@ test('a browser without audio rejects, so the interface can say so', async () =>
   });
   await expect(ambient.setOn(true)).rejects.toThrow();
 });
+
+test('switched off before the drone has started, it stays silent', async () => {
+  const audio = fakeAudio();
+  let started: () => void = () => {};
+  audio.ctx.resume = vi.fn(
+    () =>
+      new Promise<undefined>(r => {
+        started = () => {
+          audio.ctx.state = 'running';
+          r(undefined);
+        };
+      }),
+  );
+  const ambient = createAmbient(() => audio.ctx as never);
+  const on = ambient.setOn(true);
+  await ambient.setOn(false);
+  started();
+  await on;
+  expect(audio.ctx.state).toBe('suspended');
+});

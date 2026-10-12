@@ -12,6 +12,7 @@ export interface Ambient {
 export function createAmbient(make: () => AudioContext = () => new AudioContext()): Ambient {
   let ctx: AudioContext | null = null;
   let oscillators: OscillatorNode[] = [];
+  let wanted = false;
 
   const start = () => {
     const audio = make();
@@ -32,12 +33,15 @@ export function createAmbient(make: () => AudioContext = () => new AudioContext(
 
   return {
     async setOn(on) {
+      wanted = on;
       if (!on) {
-        if (ctx?.state === 'running') await ctx.suspend();
+        await ctx?.suspend();
         return;
       }
       const audio = ctx ?? start();
       await audio.resume();
+      // Switched off again while the context was still starting.
+      if (!wanted) await audio.suspend();
     },
     dispose() {
       for (const o of oscillators) o.stop();

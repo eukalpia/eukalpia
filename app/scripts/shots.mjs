@@ -83,6 +83,22 @@ try {
       timeout: 240000,
       polling: 500,
     });
+    if (shot.startsWith('character')) {
+      // UR-01 must keep the proportions of its GLB: 1.824 m ±1 %, width/height and depth/height ±2 %.
+      await page.waitForFunction(() => !!window.__eukalpia.character, null, { timeout: 180000, polling: 500 });
+      const frameAtLoad = await page.evaluate(() => window.__eukalpia.frame);
+      await page.waitForFunction(f => window.__eukalpia.frame >= f + 6, frameAtLoad, { timeout: 120000, polling: 500 });
+      const m = await page.evaluate(() => window.__eukalpia.character());
+      const off = (v, ref) => Math.abs(v - ref) / ref;
+      console.log(
+        `${shot}: UR-01 ${m.height.toFixed(3)} m, w/h ${m.widthRatio.toFixed(4)}, d/h ${m.depthRatio.toFixed(4)}`,
+      );
+      if (off(m.height, 1.824) > 0.01) failures.push(`${shot}: UR-01 height ${m.height} is not 1.824 m ±1 %`);
+      if (off(m.widthRatio, 0.4691) > 0.02)
+        failures.push(`${shot}: UR-01 width/height ${m.widthRatio} is not 0.469 ±2 %`);
+      if (off(m.depthRatio, 0.1993) > 0.02)
+        failures.push(`${shot}: UR-01 depth/height ${m.depthRatio} is not 0.199 ±2 %`);
+    }
     const file = join(
       outDir,
       `${shot}${timeOverride ? `-${timeOverride}` : ''}${debugFlags ? `-${debugFlags.replaceAll(',', '-')}` : ''}${quality === 'high' ? '' : `-${quality}`}.png`,

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "name": "UR01",
+  "units": "metres",
+  "upAxis": "+Y",
+  "height": 1.824,
+  "skeletonBones": 26,
+  "desktop": {
+    "file": "character.glb",
+    "bytes": 17819144,
+    "triangles": 151007,
+    "meshParts": 10
+  },
+  "mobile": {
+    "file": "character-mobile.glb",
+    "bytes": 6665640,
+    "triangles": 44741,
+    "meshParts": 10
+  },
+  "materials": "Baked from the editable Blender character",
+  "fabricTexture": "Generated fabric, not a photographic scan",
+  "clothMotion": "Bone animation; not a physical cloth solver"
+}

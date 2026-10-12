@@ -1,6 +1,14 @@
 import type { QualityTier, TimeOfDay } from './world';
 
-export type ShotName = 'orbit-day' | 'orbit-night' | 'underside' | 'skyline' | 'street-day' | 'street-night';
+export type ShotName =
+  | 'orbit-day'
+  | 'orbit-night'
+  | 'underside'
+  | 'skyline'
+  | 'street-day'
+  | 'street-night'
+  | 'character-front'
+  | 'character-side';
 
 const SHOT_NAMES: readonly ShotName[] = [
   'orbit-day',
@@ -9,6 +17,8 @@ const SHOT_NAMES: readonly ShotName[] = [
   'skyline',
   'street-day',
   'street-night',
+  'character-front',
+  'character-side',
 ];
 const TIMES: readonly TimeOfDay[] = ['day', 'night'];
 const TIERS: readonly QualityTier[] = ['high', 'medium', 'low'];
@@ -58,6 +68,8 @@ export interface DebugHandle {
   frame: number;
   errors: string[];
   stats(): DebugStats;
+  /** Bind-pose proportions of UR-01 once it has loaded. */
+  character?: () => { height: number; widthRatio: number; depthRatio: number };
 }
 
 declare global {

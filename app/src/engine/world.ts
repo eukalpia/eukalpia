@@ -28,7 +28,7 @@ import { upgradeCharacterMaterials } from '../character/materials';
 import { createPresence, type Presence } from '../character/presence';
 import { focusPose, landmarkFrames } from '../world/landmarks';
 import { isClick, pickNearest, type Pickable, type PickTarget } from '../world/picking';
-import { createSigns } from '../world/signs';
+import { SIGN_RISE, createSigns } from '../world/signs';
 import { createSecrets, planSecrets } from '../world/secrets';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
@@ -576,7 +576,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       if (!frame) return;
       if (mode === 'walk') setMode('orbit');
       signs.setFocus(id);
-      const pose = focusPose(frame);
+      // The view takes in the tower and its sign, which stands SIGN_RISE above the roof.
+      const index = DISTRICTS.findIndex(d => d.id === id);
+      const pose = focusPose(frame, city.specs, frame.top + SIGN_RISE[index % SIGN_RISE.length]);
       orbit.flyTo(pose.position, pose.target);
     },
     setPaused(p) {

@@ -178,7 +178,9 @@ export function createSigns(
       sprites.forEach((sprite, i) => {
         v.copy(sprite.position).applyMatrix4(camera.matrixWorldInverse);
         const r = rects[i];
-        r.behind = v.z >= 0;
+        // Below a landmark's ground the island's rock hides its sign (labels have no depth test).
+        const below = camera.matrixWorld.elements[13] < frames.get(sprite.userData.districtId)!.baseY;
+        r.behind = v.z >= 0 || below;
         const distance = -v.z;
         v.copy(sprite.position).project(camera);
         r.x = v.x;

@@ -1,6 +1,6 @@
 import {
   AgXToneMapping,
-  Clock,
+  Timer,
   MeshStandardMaterial,
   NoToneMapping,
   PCFShadowMap,
@@ -58,7 +58,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   // Shots render at a fixed DPR of 1: the software rasterizer would otherwise trip the adaptive scaler.
   const adaptive = opts.shot ? null : new AdaptiveResolution(Math.min(window.devicePixelRatio || 1, settings.maxDpr));
   renderer.setPixelRatio(opts.shot ? 1 : Math.min(window.devicePixelRatio || 1, settings.maxDpr));
-  const clock = new Clock();
+  // Timer follows page visibility, so time does not jump after a hidden tab.
+  const timer = new Timer();
+  timer.connect(document);
 
   const scene = new Scene();
   const camera = new PerspectiveCamera(40, 1, 1, 12000);
@@ -167,14 +169,15 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     };
   });
 
-  function frame() {
-    const rawDt = clock.getDelta();
+  function frame(timestamp?: number) {
+    timer.update(timestamp);
+    const rawDt = timer.getDelta();
     const dt = Math.min(rawDt, 0.1);
     orbit.update(dt);
-    sky.update(clock.elapsedTime);
+    sky.update(timer.getElapsed());
     city.update(dt);
-    clouds.update(clock.elapsedTime);
-    terrain.update(clock.elapsedTime);
+    clouds.update(timer.getElapsed());
+    terrain.update(timer.getElapsed());
     updateStreetLights(currentTime === 'night');
     sun.update();
     renderer.info.reset();
@@ -220,6 +223,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       disposed = true;
       character?.dispose();
       document.removeEventListener('visibilitychange', syncLoop);
+      timer.dispose();
       renderer.setAnimationLoop(null);
       orbit.dispose();
       sun.dispose();

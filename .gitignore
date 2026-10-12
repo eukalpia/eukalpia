@@ -1,4 +1,4 @@
-# The authoring workspace stays local. Only the prebuilt public release is versioned.
+# Source lives in app/, design docs in docs/. Everything else at the root stays out of git.
 /*
 !/.gitignore
 !/README.md
@@ -8,9 +8,17 @@
 !/site/
 !/site/**
 !/public/
+!/app/
+!/app/**
+!/docs/
+!/docs/**
 /public/*
 !/public/profile-cover.svg
 !/public/profile-ascii.svg
 !/public/THIRD-PARTY-NOTICES.txt
 *.map
 .DS_Store
+node_modules/
+/app/dist/
+/app/test-results/
+/app/.vite/

@@ -1,0 +1,51 @@
+import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, detectTier } from '../src/engine/quality';
+
+test('mobile is low', () =>
+  expect(detectTier({ mobile: true, cores: 8, renderer: 'Apple GPU', screenArea: 3e5 })).toBe('low'));
+
+test('integrated GPU is medium', () =>
+  expect(detectTier({ mobile: false, cores: 8, renderer: 'ANGLE (Intel, Iris Xe)', screenArea: 2e6 })).toBe('medium'));
+
+test('few cores is medium', () =>
+  expect(detectTier({ mobile: false, cores: 4, renderer: 'ANGLE (NVIDIA, RTX 3060)', screenArea: 2e6 })).toBe('medium'));
+
+test('discrete GPU is high', () =>
+  expect(detectTier({ mobile: false, cores: 12, renderer: 'ANGLE (NVIDIA, RTX 3060)', screenArea: 2e6 })).toBe('high'));
+
+test('slow frames lower DPR in 0.15 steps down to 0.6', () => {
+  const a = new AdaptiveResolution(2);
+  let dpr = 2;
+  const seen: number[] = [];
+  for (let i = 0; i < 2000; i++) {
+    const r = a.update(40, 1 / 25);
+    if (r !== null) { dpr = r; seen.push(r); }
+  }
+  expect(dpr).toBeCloseTo(0.6);
+  expect(seen[0]).toBeCloseTo(1.85);
+});
+
+test('fast frames raise DPR back to max', () => {
+  const a = new AdaptiveResolution(1.5);
+  let dpr = 1.5;
+  for (let i = 0; i < 400; i++) { const r = a.update(40, 1 / 25); if (r !== null) dpr = r; }
+  expect(dpr).toBeLessThan(1.5);
+  for (let i = 0; i < 4000; i++) { const r = a.update(8, 1 / 120); if (r !== null) dpr = r; }
+  expect(dpr).toBeCloseTo(1.5);
+});
+
+test('steady frames keep DPR', () => {
+  const a = new AdaptiveResolution(1.5);
+  for (let i = 0; i < 1000; i++) expect(a.update(18, 1 / 55)).toBeNull();
+});
+
+test('budgets match spec', () => {
+  expect(BUDGETS.high).toEqual({ drawCalls: 900, triangles: 6_000_000 });
+  expect(BUDGETS.medium).toEqual({ drawCalls: 600, triangles: 3_000_000 });
+  expect(BUDGETS.low).toEqual({ drawCalls: 300, triangles: 1_200_000 });
+});
+
+test('low tier uses 2D cloud layers and no AO', () => {
+  expect(TIER_SETTINGS.low.cloudSteps).toBe(0);
+  expect(TIER_SETTINGS.low.ao).toBe('off');
+  expect(TIER_SETTINGS.high.csmCascades).toBe(4);
+});

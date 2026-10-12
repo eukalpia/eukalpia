@@ -1,7 +1,8 @@
-import { Color, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
+import { Clock, Color, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import { installDebug, type DebugHandle, type ShotName } from './debug';
+import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, type QualityTier } from './quality';
 
-export type QualityTier = 'high' | 'medium' | 'low';
+export type { QualityTier } from './quality';
 export type TimeOfDay = 'day' | 'night';
 
 export interface WorldOptions {
@@ -20,12 +21,15 @@ export interface World {
   camera: PerspectiveCamera;
 }
 
-const FRAME_BUDGET = { drawCalls: 900, triangles: 6_000_000 };
-
 export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Promise<World> {
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.info.autoReset = false;
-  renderer.setPixelRatio(1);
+  const settings = TIER_SETTINGS[opts.quality];
+  const budget = BUDGETS[opts.quality];
+  // Shots render at a fixed DPR of 1: the software rasterizer would otherwise trip the adaptive scaler.
+  const adaptive = opts.shot ? null : new AdaptiveResolution(Math.min(window.devicePixelRatio || 1, settings.maxDpr));
+  renderer.setPixelRatio(opts.shot ? 1 : Math.min(window.devicePixelRatio || 1, settings.maxDpr));
+  const clock = new Clock();
 
   const scene = new Scene();
   scene.background = new Color(opts.time === 'night' ? 0x070b12 : 0x9fbad3);
@@ -40,16 +44,20 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       triangles,
       dpr: renderer.getPixelRatio(),
       tier: opts.quality,
-      budget: FRAME_BUDGET,
-      withinBudget: calls <= FRAME_BUDGET.drawCalls && triangles <= FRAME_BUDGET.triangles,
+      budget,
+      withinBudget: calls <= budget.drawCalls && triangles <= budget.triangles,
     };
   });
 
   function frame() {
+    const dt = Math.min(clock.getDelta(), 0.1);
+    const started = performance.now();
     renderer.info.reset();
     renderer.render(scene, camera);
     debug.frame += 1;
     if (debug.frame >= 2) debug.ready = true;
+    const nextDpr = adaptive?.update(performance.now() - started, dt);
+    if (nextDpr) renderer.setPixelRatio(nextDpr);
   }
 
   // Rendering stops while the tab is hidden and resumes when it is shown again.

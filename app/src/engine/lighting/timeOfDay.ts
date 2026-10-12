@@ -1,0 +1,60 @@
+import { MathUtils, Vector3 } from 'three';
+
+export type TimeOfDay = 'day' | 'night';
+
+export interface LightingPreset {
+  sunElevationDeg: number;
+  /** Compass bearing of the sun or moon: 0 = north (−z), 90 = east (+x), 180 = south (+z). */
+  sunAzimuthDeg: number;
+  sunColor: number;
+  sunIntensity: number;
+  exposure: number;
+  turbidity: number;
+  rayleigh: number;
+  envIntensity: number;
+  fogColor: number;
+  fogDensity: number;
+  fogHeightFalloff: number;
+  windowLitRatio: number;
+  bloomThreshold: number;
+}
+
+export const PRESETS: Record<TimeOfDay, LightingPreset> = {
+  day: {
+    sunElevationDeg: 32,
+    sunAzimuthDeg: 220,
+    sunColor: 0xfff1e0,
+    sunIntensity: 4.2,
+    exposure: 1.0,
+    turbidity: 2.4,
+    rayleigh: 1.2,
+    envIntensity: 1.0,
+    fogColor: 0xbfd3e6,
+    fogDensity: 0.00022,
+    fogHeightFalloff: 0.0016,
+    windowLitRatio: 0.04,
+    bloomThreshold: 0.95,
+  },
+  night: {
+    sunElevationDeg: 38,
+    sunAzimuthDeg: 140,
+    sunColor: 0x9fb4ff,
+    sunIntensity: 0.22,
+    exposure: 1.6,
+    turbidity: 0.1,
+    rayleigh: 0.1,
+    envIntensity: 0.18,
+    fogColor: 0x0d1420,
+    fogDensity: 0.00035,
+    fogHeightFalloff: 0.0012,
+    windowLitRatio: 0.38,
+    bloomThreshold: 0.62,
+  },
+};
+
+/** Unit vector pointing from the scene towards the sun (day) or moon (night). */
+export function sunDirection(p: LightingPreset, target = new Vector3()): Vector3 {
+  const el = MathUtils.degToRad(p.sunElevationDeg);
+  const az = MathUtils.degToRad(p.sunAzimuthDeg);
+  return target.set(Math.cos(el) * Math.sin(az), Math.sin(el), -Math.cos(el) * Math.cos(az)).normalize();
+}

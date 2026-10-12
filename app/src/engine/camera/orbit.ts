@@ -85,6 +85,8 @@ export interface Orbit {
   onTourChange(fn: (on: boolean) => void): void;
   /** Eases to a pose (instantly under reduced motion); a drag cancels the flight. */
   flyTo(position: Vec3, target: Vec3): void;
+  /** Holds the camera exactly at a pose, as a shot preset does (frame-by-frame capture). */
+  jumpTo(position: Vec3, target: Vec3): void;
   /** Holds the tour still; camera flights still finish. */
   setPaused(paused: boolean): void;
   /** Keyboard free flight: forward/right along the view, up for altitude. */
@@ -132,6 +134,14 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
   };
   dom.addEventListener('pointerdown', stopTour);
   dom.addEventListener('wheel', stopTour);
+
+  function hold(position: Vec3, target: Vec3) {
+    frozen = true;
+    controls.enabled = false;
+    controls.target.fromArray(target);
+    camera.position.fromArray(position);
+    camera.lookAt(controls.target);
+  }
 
   function placeOnTour() {
     const pose = tourPose(tourTime);
@@ -243,11 +253,13 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
     applyPreset(name) {
       const preset = SHOT_PRESETS[name];
       tourActive = false;
-      frozen = true;
-      controls.enabled = false;
-      controls.target.fromArray(preset.target);
-      camera.position.fromArray(preset.position);
-      camera.lookAt(controls.target);
+      hold(preset.position, preset.target);
+    },
+    jumpTo(position, target) {
+      setTour(false);
+      flight = null;
+      chase = null;
+      hold(position, target);
     },
     home() {
       frozen = false;

@@ -37,7 +37,7 @@ import { createLift, liftColliders, planLift, type LiftStatus } from '../world/l
 import { focusDistance } from '../phototrace/focus';
 import { createPhotoSession, type PhotoStatus } from '../phototrace/session';
 import type { PhotoResult } from '../phototrace/support';
-import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
+import { installDebug, type CaptureRequest, type DebugFlag, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
 import { createSky } from './lighting/sky';
 import { createSun } from './lighting/sun';
@@ -463,10 +463,22 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointerup', onPointerUp);
 
+  // Frame-by-frame capture for the README cover (debug handle only).
+  let holding = false;
+  const captures: (CaptureRequest & { resolve(url: string): void })[] = [];
+  debug.hold = on => {
+    holding = on;
+    signs.setVisible(!on);
+  };
+  debug.capture = request => new Promise(resolve => captures.push({ ...request, resolve }));
+
   function frame(timestamp?: number) {
     timer.update(timestamp);
     const rawDt = timer.getDelta();
-    const dt = Math.min(rawDt, 0.1);
+    const capture = captures.shift();
+    if (holding && !capture) return;
+    if (capture) orbit.jumpTo(capture.position, capture.target);
+    const dt = capture ? capture.dt : Math.min(rawDt, 0.1);
     const street = photoActive || paused ? 0 : dt;
     if (!paused) sceneTime += dt;
     // The lift carries UR-01 even outside walk mode, so leaving mid-ride never strands them in the shaft.
@@ -502,6 +514,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       renderer.render(scene, camera);
     } else post.render(dt);
     // A WebGL canvas can only be read in the frame it was drawn.
+    if (capture) capture.resolve(canvas.toDataURL(capture.type, capture.quality));
     for (const s of saves.splice(0))
       canvas.toBlob(
         blob => (blob ? s.resolve(blob) : s.reject(new Error('The frame could not be saved.'))),
@@ -510,7 +523,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     debug.frame += 1;
     if (debug.frame >= 2) debug.ready = true;
     // Frame time is the real interval between frames, so GPU-bound slowness is included.
-    const nextDpr = pixelated ? null : adaptive?.update(rawDt * 1000, dt);
+    const nextDpr = pixelated || capture ? null : adaptive?.update(rawDt * 1000, dt);
     if (nextDpr) {
       renderer.setPixelRatio(nextDpr);
       resize(size.width, size.height);

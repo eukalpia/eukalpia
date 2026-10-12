@@ -1,4 +1,4 @@
-import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, detectTier } from '../src/engine/quality';
+import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, detectTier, readDeviceInfo } from '../src/engine/quality';
 
 test('mobile is low', () =>
   expect(detectTier({ mobile: true, cores: 8, renderer: 'Apple GPU', screenArea: 3e5 })).toBe('low'));
@@ -92,4 +92,15 @@ test('does not climb back above a slow DPR for 20 s', () => {
     }
   }
   expect(maxSeen).toBeCloseTo(1.35);
+});
+
+describe('readDeviceInfo + detectTier', () => {
+  const env = (o: Partial<Parameters<typeof readDeviceInfo>[0]>) =>
+    readDeviceInfo({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64)', maxTouchPoints: 0, hardwareConcurrency: 12, renderer: 'ANGLE (NVIDIA, RTX 3060)', screenArea: 2e6, ...o });
+  test('an Android phone is low', () => expect(detectTier(env({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile', maxTouchPoints: 5 }))).toBe('low'));
+  test('an iPad reporting as a Mac is low', () => expect(detectTier(env({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', maxTouchPoints: 5 }))).toBe('low'));
+  test('a base Apple M1 Mac is medium', () => expect(detectTier(env({ userAgent: 'Mozilla/5.0 (Macintosh)', renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)', hardwareConcurrency: 8 }))).toBe('medium'));
+  test('an Apple M3 Max is high', () => expect(detectTier(env({ userAgent: 'Mozilla/5.0 (Macintosh)', renderer: 'ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Max, Unspecified Version)', hardwareConcurrency: 16 }))).toBe('high'));
+  test('a desktop with a discrete GPU is high', () => expect(detectTier(env({}))).toBe('high'));
+  test('an Intel laptop is medium', () => expect(detectTier(env({ renderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics)' }))).toBe('medium'));
 });

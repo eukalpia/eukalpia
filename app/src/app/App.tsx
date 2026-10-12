@@ -150,6 +150,9 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   useEffect(() => world?.setTime(ui.night ? 'night' : 'day'), [world, ui.night]);
   useEffect(() => world?.setPaused?.(ui.paused), [world, ui.paused]);
   useEffect(() => world?.setFly?.(ui.fly), [world, ui.fly]);
+  // v1 let UR-01 move only while nothing covered the city.
+  const walkInput = ui.walking && ui.panel === null && ui.selected === null && !ui.paused;
+  useEffect(() => world?.walkControls?.setActive?.(walkInput), [world, walkInput]);
   const pixelSeen = useRef(false);
   useEffect(() => {
     if (!world || (!ui.pixelated && !pixelSeen.current)) return;

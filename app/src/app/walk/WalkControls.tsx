@@ -63,6 +63,15 @@ function Joystick({ onStick }: { onStick(x: number, y: number): void }) {
     setKnob(v);
     onStick(v[0], v[1]);
   };
+  // A stick still held when the controls unmount (a panel opened) must not keep UR-01 walking.
+  const latest = useRef(onStick);
+  latest.current = onStick;
+  useEffect(
+    () => () => {
+      if (pressed.current) latest.current(0, 0);
+    },
+    [],
+  );
   useEffect(() => {
     const hidden = () => document.hidden && pressed.current && release();
     const blur = () => pressed.current && release();

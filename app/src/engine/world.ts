@@ -108,6 +108,8 @@ export interface World {
     inspect(): void;
     /** Rides or calls the LMS lift when it is in reach. */
     lift(): void;
+    /** Whether UR-01 takes keys and look: off while a panel or card covers the city, or motion is paused. */
+    setActive(on: boolean): void;
   };
   photo: {
     enter(): Promise<PhotoResult>;
@@ -619,6 +621,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       lift: () => {
         if (walk?.active) lift.press(walk.controller.position);
       },
+      setActive: on => walk?.setInputActive(on),
     },
     setFly: on => orbit.setFly(on),
     setFlyInput: input => orbit.setFlyInput(input),

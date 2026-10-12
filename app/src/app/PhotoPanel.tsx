@@ -72,7 +72,8 @@ export function PhotoPanel({
     const tick = () => setStatus(world.photo.status());
     tick();
     const id = window.setInterval(tick, 250);
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    // Escape closes a panel open over photo mode first.
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('dialog[open]') && close();
     window.addEventListener('keydown', onKey);
     const onClick = (e: MouseEvent) => {
       if (!canvas) return;

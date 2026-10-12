@@ -50,7 +50,7 @@ export function createRockMaterial(
         rCol = mix(rCol, rCol2, 0.35);
         float depthBelow = clamp((${(opts.topY ?? 0).toFixed(1)} - vRWorld.y) / 260.0, 0.0, 1.0);
         float strata = rNoise(vec2(vRWorld.y * 0.18, 0.5)) * 0.5 + rNoise(vec2(vRWorld.y * 0.9, 3.0)) * 0.5;
-        rCol *= mix(vec3(1.08, 1.0, 0.92), vec3(0.78, 0.76, 0.74), strata) * mix(1.0, 0.55, depthBelow) * ${tint.toFixed(3)};
+        rCol *= mix(vec3(0.82, 0.74, 0.64), vec3(0.5, 0.47, 0.44), strata) * mix(1.0, 0.5, depthBelow) * ${tint.toFixed(3)};
         float moss = smoothstep(0.55, 0.85, rN.y) * smoothstep(0.35, 0.65, rNoise(vRWorld.xz * 0.12));
         rCol = mix(rCol, vec3(0.05, 0.075, 0.028), moss * 0.85);
         diffuseColor.rgb = rCol;`,

@@ -22,16 +22,17 @@ export interface LightingPreset {
 
 export const PRESETS: Record<TimeOfDay, LightingPreset> = {
   day: {
-    sunElevationDeg: 32,
-    sunAzimuthDeg: 220,
-    sunColor: 0xfff1e0,
-    sunIntensity: 4.2,
-    exposure: 0.62,
-    turbidity: 2.4,
-    rayleigh: 1.2,
-    envIntensity: 1.0,
-    fogColor: 0xbfd3e6,
-    fogDensity: 0.00012,
+    // Late afternoon: a low warm sun gives long shadows and warm/cool contrast.
+    sunElevationDeg: 18,
+    sunAzimuthDeg: 238,
+    sunColor: 0xffd2a1,
+    sunIntensity: 5.2,
+    exposure: 0.58,
+    turbidity: 3.2,
+    rayleigh: 1.5,
+    envIntensity: 0.75,
+    fogColor: 0xb9c6d4,
+    fogDensity: 0.00008,
     fogHeightFalloff: 0.0016,
     windowLitRatio: 0.04,
     bloomThreshold: 2.4,

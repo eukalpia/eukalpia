@@ -302,9 +302,12 @@ if (fOpenCover > 0.001) {
   float cosT = clamp(fVt.z, 0.0, 1.0);
   float fresnel = 0.04 + 0.96 * pow(1.0 - cosT, 5.0);
   vec3 glassEmissive = room * (1.0 - fresnel) * (1.0 - frame);
-  vec3 glassAlbedo = mix(vec3(0.02, 0.025, 0.03), vec3(frameTone), frame);
-  float glassRough = mix(0.035, 0.45, frame);
-  float glassMetal = mix(0.0, 0.6, frame);
+  // Curtain walls use coated, more reflective glass (F0 ~0.08) with a blue-grey tint.
+  float coated = step(2.5, fStyle);
+  vec3 paneAlbedo = mix(vec3(0.02, 0.025, 0.03), vec3(0.11, 0.14, 0.17), coated);
+  vec3 glassAlbedo = mix(paneAlbedo, vec3(frameTone), frame);
+  float glassRough = mix(mix(0.035, 0.05, coated), 0.45, frame);
+  float glassMetal = mix(0.35 * coated, 0.6, frame);
   vec3 glassNormal = normalize(vec3((fNoise(g * 1.3 + fSeed * 50.0) - 0.5) * 0.03, (fNoise(g.yx * 1.1 + fCellX) - 0.5) * 0.03, 1.0));
 
   // Reveal: the side of the window recess, in shadow.

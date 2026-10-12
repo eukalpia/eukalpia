@@ -23,11 +23,14 @@ export function PhotoPanel({
   world,
   canvas,
   onChange,
+  tracing,
 }: {
   world: World | null;
   canvas: HTMLCanvasElement | null;
   /** Told when photo mode starts or ends, whoever ended it. */
   onChange?(open: boolean): void;
+  /** The interface's view: when it turns false (walking, the tour, free flight), photo mode ends. */
+  tracing?: boolean;
 }) {
   const [open, setOpenState] = useState(false);
   const setOpen = (next: boolean) => {
@@ -43,6 +46,11 @@ export function PhotoPanel({
     setOpen(false);
     setStatus(null);
   };
+
+  useEffect(() => {
+    if (open && tracing === false) close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracing]);
 
   useEffect(() => {
     if (!world) return;

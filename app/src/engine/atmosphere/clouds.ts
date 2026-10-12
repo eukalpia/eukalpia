@@ -43,8 +43,6 @@ const float TOP = ${CLOUD_TOP.toFixed(1)};
 const float BOTTOM = ${CLOUD_BOTTOM.toFixed(1)};
 const float SIGMA = 0.045;
 
-float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-
 float density(vec3 p) {
   float h = clamp((p.y - BOTTOM) / (TOP - BOTTOM), 0.0, 1.0);
   vec3 wind = vec3(uTime * 2.2, 0.0, uTime * 1.1);
@@ -96,7 +94,8 @@ void main() {
   float transmittance = 1.0;
 #if CLOUD_STEPS > 0
   float dt = (t1 - t0) / float(CLOUD_STEPS);
-  float jitter = hash(gl_FragCoord.xy + fract(uTime));
+  // Interleaved gradient noise: a low-discrepancy jitter that reads as fine grain, not speckle.
+  float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
   for (int i = 0; i < CLOUD_STEPS; i++) {
     vec3 p = ro + rd * (t0 + (float(i) + jitter) * dt);
     float d = density(p);

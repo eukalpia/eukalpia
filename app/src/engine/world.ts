@@ -1,5 +1,6 @@
 import { Clock, Color, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
 import { installDebug, type DebugHandle, type ShotName } from './debug';
+import { createOrbit } from './camera/orbit';
 import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, type QualityTier } from './quality';
 
 export type { QualityTier } from './quality';
@@ -34,8 +35,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const scene = new Scene();
   scene.background = new Color(opts.time === 'night' ? 0x070b12 : 0x9fbad3);
   const camera = new PerspectiveCamera(40, 1, 1, 12000);
-  camera.position.set(720, 420, 780);
-  camera.lookAt(0, 40, 0);
+  const orbit = createOrbit(camera, canvas, { reducedMotion: opts.reducedMotion || !!opts.shot });
+  if (opts.shot) orbit.applyPreset(opts.shot);
 
   const debug: DebugHandle = installDebug(() => {
     const { calls, triangles } = renderer.info.render;
@@ -52,6 +53,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   function frame() {
     const rawDt = clock.getDelta();
     const dt = Math.min(rawDt, 0.1);
+    orbit.update(dt);
     renderer.info.reset();
     renderer.render(scene, camera);
     debug.frame += 1;
@@ -83,6 +85,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     },
     dispose() {
       document.removeEventListener('visibilitychange', syncLoop);
+      orbit.dispose();
       renderer.setAnimationLoop(null);
       renderer.dispose();
     },

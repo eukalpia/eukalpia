@@ -4,19 +4,69 @@
   --night: #0b1015;
   --accent: #f99162;
 }
-* { box-sizing: border-box; }
-html, body, #root { margin: 0; height: 100%; background: var(--night); color: var(--ink); overflow: hidden; }
-body { font-family: ui-monospace, 'IBM Plex Mono', monospace; }
-.world-shell { position: fixed; inset: 0; }
-.city-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-.world-utility {
-  position: absolute; top: 18px; right: 18px; padding: 10px 14px; font: inherit; letter-spacing: 0.14em;
-  color: var(--ink); background: rgba(11, 16, 21, 0.62); border: 1px solid rgba(231, 236, 220, 0.18);
-  border-radius: 6px; backdrop-filter: blur(10px); cursor: pointer;
+* {
+  box-sizing: border-box;
 }
-.postcard { margin: 0; position: fixed; inset: 0; display: grid; place-items: center; }
-.postcard img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--night);
+  color: var(--ink);
+  overflow: hidden;
+}
+body {
+  font-family: ui-monospace, 'IBM Plex Mono', monospace;
+}
+.world-shell {
+  position: fixed;
+  inset: 0;
+}
+.city-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.world-utility {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  padding: 10px 14px;
+  font: inherit;
+  letter-spacing: 0.14em;
+  color: var(--ink);
+  background: rgba(11, 16, 21, 0.62);
+  border: 1px solid rgba(231, 236, 220, 0.18);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+.postcard {
+  margin: 0;
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.postcard img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .postcard figcaption {
-  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 16px;
-  font-size: 12px; letter-spacing: 0.12em; background: rgba(11, 16, 21, 0.7); border-radius: 6px;
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  background: rgba(11, 16, 21, 0.7);
+  border-radius: 6px;
 }

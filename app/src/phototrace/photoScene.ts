@@ -321,6 +321,8 @@ export function buildPhotoScene(sources: Object3D[], opts: PhotoSceneOptions): P
     source.traverseVisible(o => {
       const mesh = o as Mesh;
       if (!mesh.isMesh) return;
+      // Level-of-detail halves (near/far trunks and cars) are often empty.
+      if ((mesh as InstancedMesh).isInstancedMesh && (mesh as InstancedMesh).count === 0) return;
       const role = mesh.userData.photo as PhotoRole | undefined;
       const material = mesh.material as Material;
       if (role === 'skip' || Array.isArray(mesh.material)) return;

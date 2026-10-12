@@ -1,14 +1,21 @@
+import { Pass } from 'postprocessing';
 import {
-  BackSide,
-  BoxGeometry,
+  BasicDepthPacking,
   Color,
   Data3DTexture,
+  HalfFloatType,
   LinearFilter,
-  Mesh,
+  Matrix4,
   RedFormat,
   RepeatWrapping,
   ShaderMaterial,
+  Vector2,
   Vector3,
+  WebGLRenderTarget,
+  type DepthPackingStrategies,
+  type PerspectiveCamera,
+  type Texture,
+  type WebGLRenderer,
 } from 'three';
 import type { LightingPreset } from '../lighting/timeOfDay';
 import { TIER_SETTINGS, type QualityTier } from '../quality';
@@ -16,20 +23,26 @@ import { generateCloudNoise } from './noise3d';
 
 export const CLOUD_TOP = -300;
 export const CLOUD_BOTTOM = -430;
-const EXTENT = 9000;
 const NOISE_SIZE = 64;
 
-const vertexShader = /* glsl */ `
-varying vec3 vWorld;
+const fullscreenVertex = /* glsl */ `
+varying vec2 vUv;
 void main() {
-  vec4 world = modelMatrix * vec4(position, 1.0);
-  vWorld = world.xyz;
-  gl_Position = projectionMatrix * viewMatrix * world;
+  vUv = position.xy * 0.5 + 0.5;
+  gl_Position = vec4(position.xy, 1.0, 1.0);
 }`;
 
-const fragmentShader = /* glsl */ `
+const marchFragment = /* glsl */ `
+#include <packing>
 precision highp sampler3D;
 uniform sampler3D uNoise;
+uniform sampler2D tDepth;
+uniform vec2 uDepthTexel;
+uniform mat4 uProjInv;
+uniform mat4 uViewInv;
+uniform vec3 uCamPos;
+uniform float uNear;
+uniform float uFar;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform vec3 uAmbientTop;
@@ -37,11 +50,19 @@ uniform vec3 uAmbientBottom;
 uniform vec3 uCityGlow;
 uniform float uTime;
 uniform float uCoverage;
-varying vec3 vWorld;
+varying vec2 vUv;
 
 const float TOP = ${CLOUD_TOP.toFixed(1)};
 const float BOTTOM = ${CLOUD_BOTTOM.toFixed(1)};
 const float SIGMA = 0.045;
+
+float readDepth(vec2 uv) {
+#if DEPTH_PACKING == 3201
+  return unpackRGBAToDepth(texture2D(tDepth, uv));
+#else
+  return texture2D(tDepth, uv).r;
+#endif
+}
 
 float density(vec3 p) {
   float h = clamp((p.y - BOTTOM) / (TOP - BOTTOM), 0.0, 1.0);
@@ -62,7 +83,7 @@ float phase(float mu) {
 }
 
 vec3 shade(vec3 p, float d, float mu) {
-  // Three short steps towards the light for self-shadowing.
+  // Short steps towards the light for self-shadowing.
   float shadow = 0.0;
   for (int i = 1; i <= 3; i++) shadow += density(p + uSunDir * float(i) * 28.0);
   float sunT = exp(-shadow * SIGMA * 28.0) * (1.0 - exp(-d * 6.0));
@@ -73,12 +94,22 @@ vec3 shade(vec3 p, float d, float mu) {
 }
 
 void main() {
-  vec3 ro = cameraPosition;
-  vec3 rd = normalize(vWorld - ro);
+  vec4 view = uProjInv * vec4(vUv * 2.0 - 1.0, 1.0, 1.0);
+  vec3 dirView = normalize(view.xyz / view.w);
+  vec3 rd = normalize((uViewInv * vec4(dirView, 0.0)).xyz);
+  vec3 ro = uCamPos;
+
+  /*clouds:scene-depth*/
+  // Nearest surface over the 2x2 full-resolution block this half-resolution pixel covers.
+  float depth = min(min(readDepth(vUv + uDepthTexel * vec2(-0.5, -0.5)), readDepth(vUv + uDepthTexel * vec2(0.5, -0.5))),
+                    min(readDepth(vUv + uDepthTexel * vec2(-0.5, 0.5)), readDepth(vUv + uDepthTexel * vec2(0.5, 0.5))));
+  float sceneDistance = 1e9;
+  if (depth < 0.999999) sceneDistance = perspectiveDepthToViewZ(depth, uNear, uFar) / dirView.z;
+
   float t0;
   float t1;
   if (abs(rd.y) < 1e-4) {
-    if (ro.y < BOTTOM || ro.y > TOP) discard;
+    if (ro.y < BOTTOM || ro.y > TOP) { gl_FragColor = vec4(0.0); return; }
     t0 = 0.0;
     t1 = 4000.0;
   } else {
@@ -87,8 +118,9 @@ void main() {
     t0 = max(min(ta, tb), 0.0);
     t1 = max(ta, tb);
   }
-  if (t1 <= t0) discard;
-  t1 = min(t1, t0 + 2600.0);
+  t1 = min(min(t1, t0 + 2600.0), sceneDistance);
+  if (t1 <= t0) { gl_FragColor = vec4(0.0); return; }
+
   float mu = dot(rd, uSunDir);
   vec3 light = vec3(0.0);
   float transmittance = 1.0;
@@ -111,7 +143,7 @@ void main() {
   for (int i = 0; i < 3; i++) {
     float y = mix(TOP - 20.0, BOTTOM + 30.0, float(i) / 2.0);
     float t = (y - ro.y) / rd.y;
-    if (t < 0.0) continue;
+    if (t < 0.0 || t > sceneDistance) continue;
     vec3 p = ro + rd * t;
     float d = density(vec3(p.x, mix(BOTTOM, TOP, 0.35), p.z));
     float a = clamp(d * 1.6, 0.0, 1.0) * 0.8;
@@ -120,77 +152,137 @@ void main() {
   }
 #endif
   float distanceFade = 1.0 - smoothstep(3200.0, 5200.0, t0);
-  float alpha = (1.0 - transmittance) * distanceFade;
-  gl_FragColor = vec4(light * distanceFade, alpha);
+  gl_FragColor = vec4(light * distanceFade, (1.0 - transmittance) * distanceFade);
 }`;
 
-export interface CloudRig {
-  mesh: Mesh;
-  setPreset(p: LightingPreset, sunDir: Vector3, night: boolean): void;
-  update(seconds: number): void;
-  dispose(): void;
-}
+const compositeFragment = /* glsl */ `
+uniform sampler2D inputBuffer;
+uniform sampler2D tClouds;
+varying vec2 vUv;
+void main() {
+  vec4 base = texture2D(inputBuffer, vUv);
+  vec4 cloud = texture2D(tClouds, vUv);
+  gl_FragColor = vec4(base.rgb * (1.0 - cloud.a) + cloud.rgb, base.a);
+}`;
 
-export function createClouds(tier: QualityTier): CloudRig {
-  const data = generateCloudNoise(NOISE_SIZE, 1337);
-  const noise = new Data3DTexture(data, NOISE_SIZE, NOISE_SIZE, NOISE_SIZE);
-  noise.format = RedFormat;
-  noise.minFilter = noise.magFilter = LinearFilter;
-  noise.wrapS = noise.wrapT = noise.wrapR = RepeatWrapping;
-  noise.unpackAlignment = 1;
-  noise.needsUpdate = true;
+/**
+ * The cloud sea as a post pass: raymarched at half resolution against the scene depth, then
+ * composited over the frame. Clouds in front of an island occlude it; clouds behind it do not.
+ */
+export class CloudPass extends Pass {
+  readonly target: WebGLRenderTarget;
+  readonly marchMaterial: ShaderMaterial;
+  private readonly compositeMaterial: ShaderMaterial;
+  private readonly noise: Data3DTexture;
+  private readonly viewCamera: PerspectiveCamera;
 
-  const material = new ShaderMaterial({
-    name: 'CloudSea',
-    defines: { CLOUD_STEPS: TIER_SETTINGS[tier].cloudSteps },
-    uniforms: {
-      uNoise: { value: noise },
-      uSunDir: { value: new Vector3(0, 1, 0) },
-      uSunColor: { value: new Color() },
-      uAmbientTop: { value: new Color() },
-      uAmbientBottom: { value: new Color() },
-      uCityGlow: { value: new Color() },
-      uTime: { value: 0 },
-      uCoverage: { value: 0.58 },
-    },
-    vertexShader,
-    fragmentShader,
-    side: BackSide,
-    transparent: true,
-    depthWrite: false,
-    premultipliedAlpha: true,
-  });
+  constructor(camera: PerspectiveCamera, tier: QualityTier) {
+    super('CloudPass');
+    this.viewCamera = camera;
+    this.needsDepthTexture = true;
+    this.target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, depthBuffer: false });
+    this.target.texture.minFilter = this.target.texture.magFilter = LinearFilter;
 
-  const height = CLOUD_TOP - CLOUD_BOTTOM;
-  const geometry = new BoxGeometry(EXTENT, height, EXTENT).translate(0, (CLOUD_TOP + CLOUD_BOTTOM) / 2, 0);
-  const mesh = new Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  mesh.renderOrder = 10;
-  mesh.name = 'CloudSea';
+    const data = generateCloudNoise(NOISE_SIZE, 1337);
+    this.noise = new Data3DTexture(data, NOISE_SIZE, NOISE_SIZE, NOISE_SIZE);
+    this.noise.format = RedFormat;
+    this.noise.minFilter = this.noise.magFilter = LinearFilter;
+    this.noise.wrapS = this.noise.wrapT = this.noise.wrapR = RepeatWrapping;
+    this.noise.unpackAlignment = 1;
+    this.noise.needsUpdate = true;
 
-  return {
-    mesh,
-    setPreset(p, sunDir, night) {
-      const u = material.uniforms;
-      u.uSunDir.value.copy(sunDir);
-      u.uSunColor.value.set(p.sunColor).multiplyScalar(p.sunIntensity * (night ? 1.6 : 0.85));
-      if (night) {
-        u.uAmbientTop.value.set(0x0b1322).multiplyScalar(1.0);
-        u.uAmbientBottom.value.set(0x03050a);
-        u.uCityGlow.value.set(0xff9a4a).multiplyScalar(0.55);
-      } else {
-        u.uAmbientTop.value.set(0x9fb6d2).multiplyScalar(1.15);
-        u.uAmbientBottom.value.set(0x56667a).multiplyScalar(0.8);
-        u.uCityGlow.value.set(0x000000);
-      }
-    },
-    update(seconds) {
-      material.uniforms.uTime.value = seconds;
-    },
-    dispose() {
-      geometry.dispose();
-      material.dispose();
-      noise.dispose();
-    },
-  };
+    this.marchMaterial = new ShaderMaterial({
+      name: 'CloudMarch',
+      defines: { CLOUD_STEPS: TIER_SETTINGS[tier].cloudSteps, DEPTH_PACKING: BasicDepthPacking },
+      uniforms: {
+        uNoise: { value: this.noise },
+        tDepth: { value: null },
+        uDepthTexel: { value: new Vector2() },
+        uProjInv: { value: new Matrix4() },
+        uViewInv: { value: new Matrix4() },
+        uCamPos: { value: new Vector3() },
+        uNear: { value: 1 },
+        uFar: { value: 1000 },
+        uSunDir: { value: new Vector3(0, 1, 0) },
+        uSunColor: { value: new Color() },
+        uAmbientTop: { value: new Color() },
+        uAmbientBottom: { value: new Color() },
+        uCityGlow: { value: new Color() },
+        uTime: { value: 0 },
+        uCoverage: { value: 0.58 },
+      },
+      vertexShader: fullscreenVertex,
+      fragmentShader: marchFragment,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.compositeMaterial = new ShaderMaterial({
+      name: 'CloudComposite',
+      uniforms: { inputBuffer: { value: null }, tClouds: { value: this.target.texture } },
+      vertexShader: fullscreenVertex,
+      fragmentShader: compositeFragment,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.fullscreenMaterial = this.compositeMaterial;
+  }
+
+  override setDepthTexture(depthTexture: Texture | null, depthPacking: DepthPackingStrategies = BasicDepthPacking) {
+    this.marchMaterial.uniforms.tDepth.value = depthTexture;
+    if (this.marchMaterial.defines.DEPTH_PACKING !== depthPacking) {
+      this.marchMaterial.defines.DEPTH_PACKING = depthPacking;
+      this.marchMaterial.needsUpdate = true;
+    }
+  }
+
+  override setSize(width: number, height: number) {
+    this.target.setSize(Math.max(1, Math.round(width / 2)), Math.max(1, Math.round(height / 2)));
+    this.marchMaterial.uniforms.uDepthTexel.value.set(1 / Math.max(1, width), 1 / Math.max(1, height));
+  }
+
+  override render(renderer: WebGLRenderer, inputBuffer: WebGLRenderTarget, outputBuffer: WebGLRenderTarget) {
+    const u = this.marchMaterial.uniforms;
+    const cam = this.viewCamera;
+    u.uProjInv.value.copy(cam.projectionMatrixInverse);
+    u.uViewInv.value.copy(cam.matrixWorld);
+    u.uCamPos.value.setFromMatrixPosition(cam.matrixWorld);
+    u.uNear.value = cam.near;
+    u.uFar.value = cam.far;
+
+    this.fullscreenMaterial = this.marchMaterial;
+    renderer.setRenderTarget(this.target);
+    renderer.render(this.scene, this.camera);
+
+    this.fullscreenMaterial = this.compositeMaterial;
+    this.compositeMaterial.uniforms.inputBuffer.value = inputBuffer.texture;
+    renderer.setRenderTarget(this.renderToScreen ? null : outputBuffer);
+    renderer.render(this.scene, this.camera);
+  }
+
+  setPreset(p: LightingPreset, sunDir: Vector3, night: boolean) {
+    const u = this.marchMaterial.uniforms;
+    u.uSunDir.value.copy(sunDir);
+    u.uSunColor.value.set(p.sunColor).multiplyScalar(p.sunIntensity * (night ? 1.6 : 0.85));
+    if (night) {
+      u.uAmbientTop.value.set(0x0b1322);
+      u.uAmbientBottom.value.set(0x03050a);
+      u.uCityGlow.value.set(0xff9a4a).multiplyScalar(0.55);
+    } else {
+      u.uAmbientTop.value.set(0x9fb6d2).multiplyScalar(1.15);
+      u.uAmbientBottom.value.set(0x56667a).multiplyScalar(0.8);
+      u.uCityGlow.value.set(0x000000);
+    }
+  }
+
+  update(seconds: number) {
+    this.marchMaterial.uniforms.uTime.value = seconds;
+  }
+
+  override dispose() {
+    this.target.dispose();
+    this.noise.dispose();
+    this.marchMaterial.dispose();
+    this.compositeMaterial.dispose();
+    super.dispose();
+  }
 }

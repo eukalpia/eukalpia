@@ -20,11 +20,13 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { AtmosphereEffect } from './atmosphere/AtmosphereEffect';
+import { CloudPass } from './atmosphere/clouds';
 import type { DebugFlag } from './debug';
 import type { LightingPreset } from './lighting/timeOfDay';
 import { TIER_SETTINGS, type QualityTier } from './quality';
 
 export interface PostStack {
+  clouds: CloudPass;
   setSize(width: number, height: number): void;
   setPreset(p: LightingPreset, sunDir: Vector3): void;
   render(dt: number): void;
@@ -53,6 +55,10 @@ export function createPost(
     composer.addPass(ao);
   }
 
+  const clouds = new CloudPass(camera, tier);
+  clouds.enabled = !flags.has('noclouds');
+  composer.addPass(clouds);
+
   // Exposure and fog first, so bloom thresholds and tone mapping see exposed radiance.
   const atmosphere = new AtmosphereEffect(camera);
   composer.addPass(new EffectPass(camera, atmosphere));
@@ -73,6 +79,7 @@ export function createPost(
   const fog = new Color();
   const sun = new Color();
   return {
+    clouds,
     setSize(width, height) {
       composer.setSize(width, height, false);
     },

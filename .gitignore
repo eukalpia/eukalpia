@@ -5,8 +5,6 @@
 !/COPYRIGHT.md
 !/.github/
 !/.github/**
-!/site/
-!/site/**
 !/public/
 !/app/
 !/app/**
@@ -15,7 +13,6 @@
 /public/*
 !/public/profile-cover.svg
 !/public/profile-ascii.svg
-!/public/THIRD-PARTY-NOTICES.txt
 *.map
 .DS_Store
 node_modules/

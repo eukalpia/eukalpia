@@ -1,4 +1,4 @@
-import { BoxGeometry, BufferGeometry, CircleGeometry, Ray, Vector3 } from 'three';
+import { BoxGeometry, BufferGeometry, CircleGeometry, Ray, Vector3, type Box3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshBVH } from 'three-mesh-bvh';
 import type { BuildingSpec } from './buildings/massing';
@@ -12,8 +12,14 @@ export interface CollisionIsland {
   topY: number;
 }
 
+/** Solids that move or switch on and off (a lift platform, its doors); boxes are re-read every query. */
+export interface Mover {
+  boxes(): readonly Box3[];
+}
+
 export interface CollisionWorld {
   bvh: MeshBVH;
+  movers: Mover[];
   geometry: BufferGeometry;
   islands: readonly CollisionIsland[];
   /** Height of the first surface below (x, fromY, z), or null over the void. */
@@ -28,14 +34,23 @@ export function createCollisionWorld(geometry: BufferGeometry, islands: readonly
   const bvh = new MeshBVH(geometry, { maxLeafSize: 8 });
   const down = new Vector3(0, -1, 0);
   const origin = new Vector3();
+  const movers: Mover[] = [];
+  const boxHit = new Vector3();
   const hit = (o: Vector3, d: Vector3, far: number) => {
     ray.origin.copy(o);
     ray.direction.copy(d);
     const h = bvh.raycastFirst(ray, 2 /* DoubleSide */, 0, far);
-    return h ? h.distance : null;
+    let best = h ? h.distance : Infinity;
+    for (const m of movers)
+      for (const b of m.boxes()) {
+        if (b.containsPoint(o)) continue;
+        if (ray.intersectBox(b, boxHit)) best = Math.min(best, boxHit.distanceTo(o));
+      }
+    return best <= far ? best : null;
   };
   return {
     bvh,
+    movers,
     geometry,
     islands,
     groundAt(x, z, fromY) {
@@ -48,7 +63,7 @@ export function createCollisionWorld(geometry: BufferGeometry, islands: readonly
   };
 }
 
-function solidBox(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): BufferGeometry {
+export function solidBox(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): BufferGeometry {
   const g = new BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
   g.deleteAttribute('uv');
   g.deleteAttribute('normal');
@@ -80,6 +95,7 @@ export function buildCollisionWorld(
   specs: readonly BuildingSpec[],
   furniture: FurniturePlan,
   posts: readonly { x: number; y: number; z: number }[] = [],
+  extra: readonly BufferGeometry[] = [],
 ): CollisionWorld {
   const parts: BufferGeometry[] = [];
   for (const island of layout.islands) {
@@ -135,6 +151,7 @@ export function buildCollisionWorld(
     const hz = along ? 0.92 : 2.2;
     parts.push(solidBox(c.x - hx, c.y, c.z - hz, c.x + hx, c.y + 1.45, c.z + hz));
   }
+  parts.push(...extra.map(g => (g.index ? g.toNonIndexed() : g.clone())));
   const geometry = mergeGeometries(parts);
   for (const p of parts) p.dispose();
   return createCollisionWorld(

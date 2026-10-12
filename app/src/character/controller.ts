@@ -37,6 +37,29 @@ const triPoint = new Vector3();
 const capsulePoint = new Vector3();
 const direction = new Vector3();
 
+/** Pushes an upright capsule (axis bottom point p, axis top y) out of a box, horizontally. */
+function pushOut(b: Box3, p: Vector3, topY: number) {
+  if (topY + CAPSULE_RADIUS < b.min.y || p.y - CAPSULE_RADIUS > b.max.y) return;
+  const cx = Math.min(b.max.x, Math.max(b.min.x, p.x));
+  const cz = Math.min(b.max.z, Math.max(b.min.z, p.z));
+  const dx = p.x - cx;
+  const dz = p.z - cz;
+  const d = Math.hypot(dx, dz);
+  if (d >= CAPSULE_RADIUS) return;
+  if (d > 1e-6) {
+    p.x += (dx / d) * (CAPSULE_RADIUS - d);
+    p.z += (dz / d) * (CAPSULE_RADIUS - d);
+    return;
+  }
+  // Axis inside the box: leave by the nearest side.
+  const exits = [p.x - b.min.x, b.max.x - p.x, p.z - b.min.z, b.max.z - p.z];
+  const k = exits.indexOf(Math.min(...exits));
+  if (k === 0) p.x = b.min.x - CAPSULE_RADIUS;
+  else if (k === 1) p.x = b.max.x + CAPSULE_RADIUS;
+  else if (k === 2) p.z = b.min.z - CAPSULE_RADIUS;
+  else p.z = b.max.z + CAPSULE_RADIUS;
+}
+
 /** A capsule that walks over the BVH: gravity, step-up, jumping, and no tunnelling. */
 export function createController(world: CollisionWorld, spawn: Vector3): Controller {
   const position = spawn.clone();
@@ -97,6 +120,8 @@ export function createController(world: CollisionWorld, spawn: Vector3): Control
         }
       },
     });
+    // Moving solids: the capsule stays upright, so push it out sideways.
+    for (const m of world.movers) for (const b of m.boxes()) pushOut(b, segment.start, segment.end.y);
     position.x = segment.start.x;
     position.z = segment.start.z;
     // Ceilings may push down; floors are handled by the ground snap, not by the capsule.

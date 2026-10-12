@@ -1,5 +1,6 @@
 import { BoxGeometry, BufferGeometry, Vector3 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { BOOM_LENGTH } from '../src/character/cameras';
 import { createController, type MoveInput } from '../src/character/controller';
 import { DISTRICTS } from '../src/content/districts';
 import { CHARACTER_SPAWN } from '../src/engine/camera/orbit';
@@ -87,6 +88,18 @@ test('real city spawn points stand on ground', () => {
   const world = buildCollisionWorld(layout, buildCity(layout, DISTRICTS).specs, planFurniture(layout, 'high'));
   expect(world.groundAt(CHARACTER_SPAWN.x, CHARACTER_SPAWN.z, 50)).toBeCloseTo(0, 2);
   expect(world.groundAt(0, 380, 50)).toBeNull();
+});
+
+test('walking starts with a clear view: no tree or lamp between the camera and UR-01, or right ahead of it', () => {
+  const layout = createLayout(DEFAULT_SEED, DISTRICTS);
+  const plan = planFurniture(layout, 'high');
+  // UR-01 faces +z; the boom camera hangs BOOM_LENGTH behind, and the view runs 8 m ahead.
+  const z0 = CHARACTER_SPAWN.z - BOOM_LENGTH - 0.5;
+  const z1 = CHARACTER_SPAWN.z + 8;
+  for (const t of [...plan.trees, ...plan.lamps]) {
+    const inCorridor = t.z > z0 && t.z < z1 && Math.abs(t.x - CHARACTER_SPAWN.x) < 1.2;
+    expect(inCorridor, `${t.x.toFixed(1)}, ${t.z.toFixed(1)}`).toBe(false);
+  }
 });
 
 test('signal poles are solid', () => {

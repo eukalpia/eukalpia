@@ -195,3 +195,32 @@ export function createBarkMaterial(): MeshStandardMaterial {
   m.customProgramCacheKey = () => 'bark';
   return m;
 }
+
+/** Leaves this close to the camera dissolve: inside a crown, or between the third-person camera and UR-01. */
+export const LEAF_FADE = { near: 1, far: 3 };
+
+/** How much of a leaf survives at this distance from the camera (the shader's smoothstep). */
+export function leafCoverAt(distance: number): number {
+  const t = Math.min(1, Math.max(0, (distance - LEAF_FADE.near) / (LEAF_FADE.far - LEAF_FADE.near)));
+  return t * t * (3 - 2 * t);
+}
+
+/** Dithers leaves away near the camera, after whatever hooks the material already has (the sun's cascades). */
+export function fadeNearCamera(m: Material): void {
+  const earlier = m.onBeforeCompile.bind(m);
+  m.onBeforeCompile = (shader, renderer) => {
+    earlier(shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <alphatest_fragment>',
+      `#include <alphatest_fragment>
+      /*leaves:near-fade*/
+      {
+        float cover = smoothstep(${LEAF_FADE.near.toFixed(2)}, ${LEAF_FADE.far.toFixed(2)}, length(vViewPosition));
+        float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+        if (dither >= cover) discard;
+      }`,
+    );
+  };
+  const key = m.customProgramCacheKey.bind(m);
+  m.customProgramCacheKey = () => `${key()}|near-fade`;
+}

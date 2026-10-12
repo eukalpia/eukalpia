@@ -1,5 +1,14 @@
-import { Matrix4, Vector3 } from 'three';
-import { createBarkMaterial, createTrunkLod, TREE_LOD_NEAR, trunkGeometry } from '../src/world/street/trees';
+import { Matrix4, MeshStandardMaterial, Vector3 } from 'three';
+import {
+  createBarkMaterial,
+  createTrunkLod,
+  fadeNearCamera,
+  LEAF_FADE,
+  leafCoverAt,
+  TREE_LOD_NEAR,
+  trunkGeometry,
+} from '../src/world/street/trees';
+import { BOOM_LENGTH } from '../src/character/cameras';
 import { fakeShader } from './helpers';
 
 const radiusAt = (g: ReturnType<typeof trunkGeometry>, y: number) => {
@@ -70,4 +79,29 @@ test('only trunks near the camera get the detailed geometry', () => {
   lod.near.getMatrixAt(0, m);
   expect(p.setFromMatrixPosition(m).x).toBeGreaterThan(190 - TREE_LOD_NEAR);
   expect(lod.near.castShadow && lod.far.castShadow).toBe(true);
+});
+
+test('leaves right at the walking camera dissolve so a crown never fills the screen; a step further they are whole', () => {
+  expect(LEAF_FADE.far).toBeLessThan(BOOM_LENGTH - 0.3); // leaves just behind UR-01 stay whole
+  expect(leafCoverAt(0.3)).toBe(0);
+  expect(leafCoverAt(LEAF_FADE.near)).toBe(0);
+  expect(leafCoverAt((LEAF_FADE.near + LEAF_FADE.far) / 2)).toBeCloseTo(0.5, 6);
+  expect(leafCoverAt(LEAF_FADE.far)).toBe(1);
+  expect(leafCoverAt(40)).toBe(1);
+});
+
+test('the fade is a dithered discard after the alpha test, and keeps the shadow hook it was given', () => {
+  const m = new MeshStandardMaterial({ alphaTest: 0.45 });
+  let earlier = 0;
+  m.onBeforeCompile = () => void earlier++;
+  fadeNearCamera(m);
+  const shader = fakeShader();
+  m.onBeforeCompile(shader, undefined as never);
+  expect(earlier).toBe(1);
+  const frag = shader.fragmentShader;
+  expect(frag).toContain('/*leaves:near-fade*/');
+  expect(frag.indexOf('/*leaves:near-fade*/')).toBeGreaterThan(frag.indexOf('#include <alphatest_fragment>'));
+  expect(frag).toContain('length(vViewPosition)');
+  expect(frag).toContain('discard');
+  expect(m.customProgramCacheKey()).toContain('near-fade');
 });

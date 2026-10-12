@@ -19,7 +19,7 @@ import type { SunRig } from '../../engine/lighting/sun';
 import { TIER_SETTINGS, type CasterKind, type QualityTier } from '../../engine/quality';
 import { MeshBuilder } from '../buildings/geometry';
 import { carKindFor, createCarFleet, type CarFleet } from './cars';
-import { createBarkMaterial, createTrunkLod, trunkGeometry, type TrunkLod } from './trees';
+import { createBarkMaterial, createTrunkLod, fadeNearCamera, trunkGeometry, type TrunkLod } from './trees';
 import { mulberry32, range } from '../rng';
 import type { FurniturePlan, Placement } from './furniture';
 
@@ -250,6 +250,7 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
   const leafDepth = keep(new MeshDepthMaterial({ depthPacking: RGBADepthPacking, map: leafMap, alphaTest: 0.45 }));
   const rail = keep(new MeshStandardMaterial({ color: 0x23272b, roughness: 0.45, metalness: 0.8 }));
   for (const m of [metal, wood, bark, leaves, rail]) ctx.sun.setupMaterial(m);
+  fadeNearCamera(leaves);
 
   const lamp = lampGeometry();
   disposables.push(lamp.post, lamp.lens);

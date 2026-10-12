@@ -7,6 +7,7 @@ export type ShotName =
   | 'skyline'
   | 'street-day'
   | 'street-night'
+  | 'street-corner'
   | 'character-front'
   | 'character-side';
 
@@ -17,6 +18,7 @@ const SHOT_NAMES: readonly ShotName[] = [
   'skyline',
   'street-day',
   'street-night',
+  'street-corner',
   'character-front',
   'character-side',
 ];

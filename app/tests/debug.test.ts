@@ -19,6 +19,7 @@ test('parses known debug flags and drops unknown ones', () => {
 test('street shots are recognised', () => {
   expect(parseShotParams('?shot=street-night').shot).toBe('street-night');
   expect(parseShotParams('?shot=street-day').shot).toBe('street-day');
+  expect(parseShotParams('?shot=street-corner').shot).toBe('street-corner');
 });
 
 test('character shots are recognised', () => {

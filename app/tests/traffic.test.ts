@@ -1,7 +1,8 @@
 import { DISTRICTS } from '../src/content/districts';
 import { buildCity } from '../src/world/buildings/geometry';
 import { DEFAULT_SEED, createLayout } from '../src/world/layout';
-import { carPose, planSkyways, planTraffic, podPose } from '../src/world/street/traffic';
+import { planClutter, signalState } from '../src/world/street/clutter';
+import { CAR_HALF, carPose, createTrafficSim, planSkyways, planTraffic, podPose } from '../src/world/street/traffic';
 
 const L = createLayout(DEFAULT_SEED, DISTRICTS);
 const specs = buildCity(L, DISTRICTS).specs;
@@ -57,4 +58,51 @@ test('skyways never cut through a tower', () => {
           if (inside) expect(p.y).toBeGreaterThan(t.y1 + 15 + (s.crown === 'flat' ? 0 : 45));
         }
     }
+});
+
+describe('traffic obeys the signals', () => {
+  const crossings = planClutter(L, specs).crossings;
+  const sim = createTrafficSim(routes, crossings);
+  const dt = 1 / 30;
+  const start = sim.cars.map(c => c.d);
+  const travelled = sim.cars.map(() => 0);
+  const runs: string[] = [];
+  let minGap = Infinity;
+  let mostStanding = 0;
+  for (let k = 1; k <= 120 * 30; k++) {
+    const t = k * dt;
+    const before = sim.cars.map(c => c.d);
+    sim.step(dt, t);
+    let standing = 0;
+    sim.cars.forEach((c, i) => {
+      const loop = 2 * c.length;
+      const moved = (c.d - before[i] + loop) % loop;
+      travelled[i] += moved;
+      if (c.v < 0.05) standing++;
+      const front = (before[i] + CAR_HALF) % loop;
+      for (const line of sim.stopLines(c)) {
+        const rel = (line.at - front + loop) % loop;
+        if (rel > 0 && rel <= moved && signalState(crossings[line.crossing], t)[line.axis] === 'red')
+          runs.push(`car ${i} at t=${t.toFixed(2)}`);
+      }
+    });
+    mostStanding = Math.max(mostStanding, standing);
+    for (const group of sim.streets()) {
+      const sorted = [...group].sort((a, b) => a.d - b.d);
+      const loop = 2 * sorted[0].length;
+      for (let i = 0; i < sorted.length && sorted.length > 1; i++) {
+        const a = sorted[i];
+        const b = sorted[(i + 1) % sorted.length];
+        minGap = Math.min(minGap, (b.d - a.d + loop) % loop);
+      }
+    }
+  }
+
+  test('no car crosses a stop line on red', () => expect(runs).toEqual([]));
+  test('queues form at red lights', () => expect(mostStanding).toBeGreaterThan(15));
+  test('cars keep a gap to the car ahead', () => expect(minGap).toBeGreaterThan(2 * CAR_HALF + 1));
+  test('traffic keeps flowing', () => {
+    expect(start).toHaveLength(routes.length);
+    for (const d of travelled) expect(d).toBeGreaterThan(240);
+  });
 });

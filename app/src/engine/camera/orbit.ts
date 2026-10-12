@@ -23,6 +23,8 @@ export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = 
   // Eye height on the east sidewalk of the ring avenue, looking north-west towards the monolith.
   'street-day': { position: [69, 1.7, 160], target: [48, 34, 30] },
   'street-night': { position: [69, 1.7, 160], target: [48, 34, 30] },
+  // Down the east sidewalk of the ring avenue to the crossing at (56, 135): signals and storefronts.
+  'street-corner': { position: [64.5, 1.7, 160], target: [62, 2.6, 128] },
   // UR-01 stands at CHARACTER_SPAWN facing +z; front and left-side portraits from 3.6 m.
   'character-front': { position: [69, 1.15, 153.6], target: [69, 0.95, 150] },
   'character-side': { position: [72.6, 1.15, 150], target: [69, 0.95, 150] },

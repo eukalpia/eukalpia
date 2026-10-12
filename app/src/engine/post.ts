@@ -13,12 +13,14 @@ import {
 import {
   Color,
   HalfFloatType,
+  type Texture,
   Vector2,
   type PerspectiveCamera,
   type Scene,
   type Vector3,
   type WebGLRenderer,
 } from 'three';
+import { PhotoInputPass } from '../phototrace/photoInputPass';
 import { AtmosphereEffect } from './atmosphere/AtmosphereEffect';
 import { CloudPass } from './atmosphere/clouds';
 import type { DebugFlag } from './debug';
@@ -27,6 +29,8 @@ import { TIER_SETTINGS, type QualityTier } from './quality';
 
 export interface PostStack {
   clouds: CloudPass;
+  /** Photo mode: feed the path tracer's image in place of the rasterised colour (null returns to raster). */
+  setInput(texture: Texture | null): void;
   setSize(width: number, height: number): void;
   setPreset(p: LightingPreset, sunDir: Vector3): void;
   render(dt: number): void;
@@ -42,11 +46,16 @@ export function createPost(
 ): PostStack {
   const settings = TIER_SETTINGS[tier];
   const composer = new EffectComposer(renderer, { frameBufferType: HalfFloatType });
-  composer.addPass(new RenderPass(scene, camera));
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+  const photoInput = new PhotoInputPass(scene, camera);
+  photoInput.enabled = false;
+  composer.addPass(photoInput);
 
+  let ao: N8AOPostPass | null = null;
   if (settings.ao !== 'off' && !flags.has('noao')) {
     const size = renderer.getDrawingBufferSize(new Vector2());
-    const ao = new N8AOPostPass(scene, camera, size.x, size.y);
+    ao = new N8AOPostPass(scene, camera, size.x, size.y);
     ao.configuration.aoRadius = 6;
     ao.configuration.distanceFalloff = 2;
     ao.configuration.intensity = 2.2;
@@ -80,6 +89,13 @@ export function createPost(
   const sun = new Color();
   return {
     clouds,
+    setInput(texture) {
+      renderPass.enabled = texture === null;
+      photoInput.enabled = texture !== null;
+      photoInput.setPathTexture(texture);
+      // The traced image already holds its own occlusion.
+      if (ao) ao.enabled = texture === null;
+    },
     setSize(width, height) {
       composer.setSize(width, height, false);
     },

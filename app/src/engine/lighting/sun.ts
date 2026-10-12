@@ -12,6 +12,16 @@ export interface SunRig {
   dispose(): void;
 }
 
+/** City extent beyond its centre that shadows must still reach: the main island plus a satellite. */
+const CITY_REACH = 560;
+
+/** How far the shadow cascades must reach for a camera this far from the city centre. */
+export function cascadeFar(distanceToCity: number): number {
+  return Math.min(3600, Math.max(420, distanceToCity + CITY_REACH));
+}
+
+const CITY_CENTER = new Vector3(0, 60, 0);
+
 export function createSun(parent: Object3D, camera: PerspectiveCamera, tier: QualityTier): SunRig {
   const settings = TIER_SETTINGS[tier];
   const csm = new CSM({
@@ -19,20 +29,29 @@ export function createSun(parent: Object3D, camera: PerspectiveCamera, tier: Qua
     parent,
     cascades: settings.csmCascades,
     shadowMapSize: settings.shadowMapSize,
-    maxFar: 1400,
+    maxFar: cascadeFar(1150),
     mode: 'practical',
     lightMargin: 400,
     lightFar: 4000,
     lightIntensity: 4,
     shadowBias: -0.0002,
   });
-  // Far cascades cover more meters per shadow texel, so they need a larger normal offset.
-  const normalBias = [0.12, 0.35, 0.8, 1.6];
-  csm.lights.forEach((light, i) => {
-    light.shadow.normalBias =
-      normalBias[Math.min(i, normalBias.length - 1)] * (settings.shadowMapSize === 1024 ? 2 : 1);
-    light.shadow.bias = -0.0004;
-  });
+  // Blend into the next cascade instead of cutting off at a hard line.
+  csm.fade = true;
+  for (const light of csm.lights) light.shadow.bias = -0.0004;
+
+  // Far cascades cover more meters per shadow texel, so their normal offset grows with their reach.
+  function refit(far: number) {
+    csm.maxFar = far;
+    csm.updateFrustums();
+    const halfHeight = Math.tan((camera.fov * Math.PI) / 360);
+    csm.lights.forEach((light, i) => {
+      const reach = (csm.breaks[i] ?? 1) * far;
+      const texel = (2 * reach * halfHeight * Math.max(1, camera.aspect)) / settings.shadowMapSize;
+      light.shadow.normalBias = Math.min(3, texel * 1.5);
+    });
+  }
+  refit(csm.maxFar);
 
   const dir = new Vector3();
   const color = new Color();
@@ -49,6 +68,9 @@ export function createSun(parent: Object3D, camera: PerspectiveCamera, tier: Qua
       }
     },
     update() {
+      // Re-fit when the camera moves between street level and orbit (5 % hysteresis).
+      const far = cascadeFar(camera.position.distanceTo(CITY_CENTER));
+      if (Math.abs(far - csm.maxFar) / csm.maxFar > 0.05) refit(far);
       csm.update();
     },
     setupMaterial(material) {

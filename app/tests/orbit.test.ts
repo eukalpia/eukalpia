@@ -1,5 +1,13 @@
 import { PerspectiveCamera, Vector3 } from 'three';
-import { FLY_RADIUS, ORBIT_LIMITS, SHOT_PRESETS, createOrbit, tourPose } from '../src/engine/camera/orbit';
+import { CLOUD_TOP } from '../src/engine/atmosphere/clouds';
+import {
+  FLY_RADIUS,
+  ORBIT_LIMITS,
+  SHOT_PRESETS,
+  UNDERWORLD_POSE,
+  createOrbit,
+  tourPose,
+} from '../src/engine/camera/orbit';
 import { fakeDom } from './helpers';
 
 test('tour stays within orbit limits', () => {
@@ -143,4 +151,10 @@ test('following a moving target keeps the camera at its offset until a drag lets
   pod.set(400, 80, 50);
   o.update(0.05);
   expect(o.controls.target.distanceTo(pod)).toBeGreaterThan(100);
+});
+
+test('floor −1 looks up at the roots from clear air above the cloud deck, not from inside it', () => {
+  const [, y] = UNDERWORLD_POSE.position;
+  expect(y).toBeGreaterThan(CLOUD_TOP + 20);
+  expect(y).toBeLessThan(UNDERWORLD_POSE.target[1]);
 });

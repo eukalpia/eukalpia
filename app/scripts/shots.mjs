@@ -89,7 +89,7 @@ try {
       timeout: 240000,
       polling: 500,
     });
-    await page.getByRole('button', { name: 'Open photo mode' }).click();
+    await page.getByRole('button', { name: /^Ray Tracing/ }).click();
     const alert = await page
       .getByRole('alert')
       .textContent({ timeout: 30000 })
@@ -97,10 +97,10 @@ try {
     const frame = await page.evaluate(() => window.__eukalpia.frame);
     await page.waitForTimeout(5000);
     const still = await page.evaluate(f => window.__eukalpia.frame > f, frame);
-    const button = await page.getByRole('button', { name: 'Open photo mode' }).isVisible();
+    const button = await page.getByRole('button', { name: /^Ray Tracing/ }).isVisible();
     if (!alert.includes('EXT_color_buffer_float')) failures.push(`no-float: no refusal message (got "${alert}")`);
     else if (!button || !still)
-      failures.push(`no-float: the normal view did not come back (PHOTO button ${button}, frames advancing ${still})`);
+      failures.push(`no-float: the normal view did not come back (Ray Tracing toggle ${button}, frames advancing ${still})`);
     else console.log(`no-float: "${alert}"`);
     for (const e of errors) failures.push(`no-float: ${e}`);
     await page.close();

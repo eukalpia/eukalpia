@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createWorld, type QualityTier, type TimeOfDay, type World } from '../engine/world';
 import type { DebugFlag, ShotName } from '../engine/debug';
+import { DISTRICTS } from '../content/districts';
+import { Boot, Credit, Dock, greetConsole, Guidance, guidanceText, Location, Toast, Utilities } from './chrome';
 import { PhotoPanel } from './PhotoPanel';
 import type { Sector } from './url';
 
@@ -14,25 +16,33 @@ export interface AppProps {
   sector?: Sector;
 }
 
+/** What shows in place of the canvas when WebGL is missing or the city failed to start. */
 export function Postcard() {
   return (
-    <figure className="postcard">
+    <figure className="fallback">
       <img src={`${import.meta.env.BASE_URL}city-cinematic.webp`} alt="A captured view of the floating 3D city" />
       <figcaption>POSTCARD MODE · Open Projects to explore every district.</figcaption>
     </figure>
   );
 }
 
-export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, sector }: AppProps) {
+const TOAST_MS = 5500;
+
+export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, sector = 'overview' }: AppProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
   const [postcard, setPostcard] = useState(!webgl2);
   const [time, setTime] = useState<TimeOfDay>(initialTime);
   const [walking, setWalking] = useState(false);
   const [world, setWorld] = useState<World | null>(null);
+  const [paused, setPaused] = useState(reducedMotion);
+  const [sound, setSound] = useState(false);
+  const [tracing, setTracing] = useState(false);
   // The world may still be loading when the visitor toggles Day/Night; apply the latest choice once it exists.
   const timeRef = useRef(time);
   timeRef.current = time;
+
+  useEffect(greetConsole, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -65,15 +75,15 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
 
   useEffect(() => worldRef.current?.setTime(time), [time]);
 
-  // A short notice, e.g. why walking is not available yet.
-  const [notice, setNotice] = useState<string | null>(null);
+  // One shared message slot; a newer message restarts the clock (v1 let an older timer clear it early).
+  const [toast, setToast] = useState('');
   useEffect(() => {
-    if (!notice) return;
-    const id = window.setTimeout(() => setNotice(null), 5000);
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(''), TOAST_MS);
     return () => window.clearTimeout(id);
-  }, [notice]);
+  }, [toast]);
 
-  // Temporary lift hint until the full interface lands: what the L key would do right now.
+  // Temporary lift hint until the walking controls land: what the L key would do right now.
   const [liftHint, setLiftHint] = useState<string | null>(null);
   useEffect(() => {
     if (!walking) return setLiftHint(null);
@@ -84,41 +94,77 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     return () => window.clearInterval(id);
   }, [walking]);
 
-  if (postcard) return <Postcard />;
+  const enterWalk = () => {
+    const world = worldRef.current;
+    if (!world) return;
+    if (world.setMode('walk')) setWalking(true);
+    else
+      setToast(
+        world.walkState?.() === 'failed'
+          ? 'The exploration suit could not load. Please try Walk again.'
+          : 'UR-01 is still loading…',
+      );
+  };
+  const toOrbit = () => {
+    if (walking && worldRef.current?.setMode('orbit')) setWalking(false);
+  };
+
+  // Postcard mode is as ready as the page will get: the boot line goes, the interface stays.
+  const ready = world !== null || postcard;
+  const tour = !reducedMotion && !shot && sector === 'overview' && !walking;
+  const classes = [
+    'world-shell immersive-world is-exploring',
+    walking && 'is-walking',
+    ready && 'is-ready',
+    time === 'night' ? 'night' : 'dawn',
+  ].filter(Boolean);
+
   return (
-    <main className="world-shell">
-      <canvas ref={canvasRef} className="city-canvas" />
-      <button
-        className="world-utility"
-        onClick={() => setTime(t => (t === 'night' ? 'day' : 'night'))}
-        aria-label={time === 'night' ? 'Switch to daylight' : 'Switch to night'}
+    <main className={classes.join(' ')}>
+      <div className="world-vignette" aria-hidden="true" />
+      <div className={`city-stage${postcard ? ' is-fallback' : ''}`}>
+        <div className="city-canvas">
+          <canvas
+            ref={canvasRef}
+            role="img"
+            tabIndex={0}
+            aria-label="Interactive floating city. Drag to orbit, scroll to zoom. Buildings and small hidden objects can be selected."
+          />
+        </div>
+        {postcard && <Postcard />}
+      </div>
+      {!ready && <Boot />}
+      <Location sector={sector} />
+      <Utilities
+        night={time === 'night'}
+        paused={paused}
+        pauseLocked={tracing}
+        sound={sound}
+        shareCopied={false}
+        onNight={() => setTime(t => (t === 'night' ? 'day' : 'night'))}
+        onPause={() => setPaused(p => !p)}
+        onSound={() => setSound(s => !s)}
+        onShare={() => {}}
       >
-        {time === 'night' ? 'DAY' : 'NIGHT'}
-      </button>
-      <button
-        className="world-utility world-utility-walk"
-        onClick={() => {
-          const world = worldRef.current;
-          if (!world) return;
-          const next = !walking;
-          if (world.setMode(next ? 'walk' : 'orbit')) setWalking(next);
-          else if (next)
-            setNotice(
-              world.walkState?.() === 'failed'
-                ? 'Walking is unavailable: UR-01 could not load.'
-                : 'UR-01 is still loading…',
-            );
-        }}
-        aria-label={walking ? 'Return to orbit' : 'Walk through the city'}
-      >
-        {walking ? 'ORBIT' : 'WALK'}
-      </button>
-      <PhotoPanel world={world} canvas={canvasRef.current} />
-      {(notice ?? liftHint) && (
-        <p className="world-hint" role="status">
-          {notice ?? liftHint}
-        </p>
-      )}
+        <PhotoPanel world={world} canvas={canvasRef.current} onChange={setTracing} />
+      </Utilities>
+      <Guidance text={guidanceText({ tracing, hover: null, fly: false, tour })} hovered={false} />
+      <footer className="world-interface">
+        <Credit onBuilder={() => {}} />
+        <Dock
+          walkDisabled={world === null}
+          orbitActive={!walking}
+          districts={DISTRICTS.length}
+          found={0}
+          onOrbit={toOrbit}
+          onWalk={enterWalk}
+          onProjects={() => {}}
+          onDiscoveries={() => {}}
+          onHelp={() => {}}
+        />
+      </footer>
+      <Toast text={toast} />
+      {liftHint && <p className="world-hint">{liftHint}</p>}
     </main>
   );
 }

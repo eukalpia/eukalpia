@@ -17,8 +17,10 @@ export const FLY_RADIUS = 900;
 /** Free-flight speed (m/s): v1's 9 units/s at its 0.36 units per metre. */
 const FLY_SPEED = 25;
 
-/** A sidewalk spot on the east side of the ring avenue. */
-export const CHARACTER_SPAWN = { x: 69, z: 150 };
+/** A sidewalk spot on the east side of the ring avenue, off the tree line and midway between two trees. */
+export const CHARACTER_SPAWN = { x: 70.5, z: 154.5 };
+/** A point this far east, up and south of CHARACTER_SPAWN. */
+const nearSpawn = (dx: number, y: number, dz: number): Vec3 => [CHARACTER_SPAWN.x + dx, y, CHARACTER_SPAWN.z + dz];
 
 export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = {
   'orbit-day': { position: [720, 420, 780], target: [0, 40, 0] },
@@ -33,12 +35,12 @@ export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = 
   // The panoramic lift on the west face of the LMS tower, from across the ring avenue, and from its roof.
   'lms-lift': { position: [46, 1.7, 30], target: [72, 34, 2] },
   'lms-roof': { position: [77.5, 193.9, 4.8], target: [-30, 105, -230] },
-  // UR-01 stands at CHARACTER_SPAWN facing +z; front and left-side portraits from 3.6 m.
-  'character-front': { position: [69, 1.15, 153.6], target: [69, 0.95, 150] },
-  'character-side': { position: [72.6, 1.15, 150], target: [69, 0.95, 150] },
+  // UR-01 stands at CHARACTER_SPAWN facing +z; a front portrait from 3.6 m; its left side from 2.9 m, clear of the shopfront at x = 74.
+  'character-front': { position: nearSpawn(0, 1.15, 3.6), target: nearSpawn(0, 0.95, 0) },
+  'character-side': { position: nearSpawn(2.9, 1.15, 0), target: nearSpawn(0, 0.95, 0) },
   // Close looks at UR-01's materials: head and chest from 2.2 m, and a three-quarter view.
-  'character-closeup': { position: [69, 1.55, 152.2], target: [69, 1.35, 150] },
-  'character-three-quarter': { position: [71.2, 1.45, 152.4], target: [69, 1.0, 150] },
+  'character-closeup': { position: nearSpawn(0, 1.55, 2.2), target: nearSpawn(0, 1.35, 0) },
+  'character-three-quarter': { position: nearSpawn(2.2, 1.45, 2.4), target: nearSpawn(0, 1.0, 0) },
   // The hidden objects up close: the cat on the Admissions roof, the beacon, the elevator, the ghost window.
   'secret-cat': { position: [-15, 148.4, 119.5], target: [-18.6, 147.6, 114] },
   'secret-beacon': { position: [190, 5, 124], target: [178.7, 5, 109.8] },

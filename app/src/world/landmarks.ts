@@ -9,6 +9,8 @@ export interface LandmarkFrame {
   z: number;
   baseY: number;
   top: number;
+  /** The larger side of the ground-floor footprint. */
+  size: number;
 }
 
 export function landmarkFrames(specs: readonly BuildingSpec[]): Map<number, LandmarkFrame> {
@@ -21,6 +23,7 @@ export function landmarkFrames(specs: readonly BuildingSpec[]): Map<number, Land
       z: s.tiers[0].cz,
       baseY: s.baseY,
       top: Math.max(...s.tiers.map(t => t.y1)),
+      size: Math.max(s.tiers[0].width, s.tiers[0].depth),
     });
   }
   return frames;

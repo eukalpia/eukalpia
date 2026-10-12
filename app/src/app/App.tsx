@@ -81,6 +81,11 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
         // Esc, ?sector=street and the lift can change the mode without the dock.
         world.onModeChange?.(mode => dispatch({ type: 'walk', on: mode === 'walk' }));
         world.onTourChange?.(on => !on && dispatch({ type: 'tourEnded' }));
+        world.onHover?.(label => setHover(label));
+        world.onPick?.(target => {
+          if (target.kind === 'district') dispatch({ type: 'select', id: target.id });
+          else if (target.kind === 'vehicle' && !uiRef.current.walking) world.followVehicle?.();
+        });
         if (sector === 'underworld') world.setSector?.('underworld');
       })
       .catch(error => {
@@ -98,6 +103,8 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quality, initialTime, shot, reducedMotion, postcard]);
+
+  const [hover, setHover] = useState<string | null>(null);
 
   // One shared message slot; a newer message restarts the clock (v1 let an older timer clear it early).
   const [toast, setToast] = useState('');
@@ -270,7 +277,10 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       >
         <PhotoPanel world={world} canvas={canvasRef.current} onChange={on => act({ type: 'trace', on })} />
       </Utilities>
-      <Guidance text={guidanceText({ tracing: ui.tracing, hover: null, fly: ui.fly, tour: ui.tour })} hovered={false} />
+      <Guidance
+        text={guidanceText({ tracing: ui.tracing, hover, fly: ui.fly, tour: ui.tour })}
+        hovered={!ui.tracing && hover !== null}
+      />
       <footer className="world-interface">
         <Credit onBuilder={() => act({ type: 'panel', panel: 'author' })} />
         <Dock

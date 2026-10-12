@@ -14,6 +14,8 @@ import { DISTRICTS } from '../src/content/districts';
 function recordingWorld() {
   const calls: unknown[][] = [];
   let tourListener: (on: boolean) => void = () => {};
+  let hoverListener: (label: string | null) => void = () => {};
+  let pickListener: (target: unknown) => void = () => {};
   const rec =
     (name: string, ret?: unknown) =>
     (...args: unknown[]) => {
@@ -36,6 +38,9 @@ function recordingWorld() {
     setFly: rec('setFly'),
     setFlyInput() {},
     setPixelated: rec('setPixelated'),
+    onHover: (fn: typeof hoverListener) => (hoverListener = fn),
+    onPick: (fn: typeof pickListener) => (pickListener = fn),
+    followVehicle: rec('followVehicle'),
     photo: {
       enter: async () => ({ ok: true }),
       exit() {},
@@ -50,6 +55,8 @@ function recordingWorld() {
     world,
     calls,
     endTour: () => tourListener(false),
+    hover: (label: string | null) => hoverListener(label),
+    pick: (target: unknown) => pickListener(target),
     called: (name: string) => calls.filter(c => c[0] === name),
   };
 }
@@ -149,4 +156,23 @@ test('the maintenance door goes to floor −1', async () => {
   expect(r.called('setSector').at(-1)).toEqual(['setSector', 'underworld']);
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByText('BELOW THE SURFACE')).toBeTruthy();
+});
+
+test('hovering names what is under the pointer; leaving restores the hint', async () => {
+  const r = await mount();
+  await act(async () => r.hover('University LMS'));
+  expect(screen.getByText('University LMS')).toBeTruthy();
+  expect(screen.queryByText('DRAG TO ORBIT · SCROLL TO EXPLORE')).toBeNull();
+  await act(async () => r.hover(null));
+  expect(screen.getByText('DRAG TO ORBIT · SCROLL TO EXPLORE')).toBeTruthy();
+});
+
+test('clicking a building opens its card and flies there; clicking the air taxi chases it', async () => {
+  const r = await mount();
+  const lms = DISTRICTS.find(d => d.name === 'lms.turin.uz')!;
+  await act(async () => r.pick({ kind: 'district', id: lms.id }));
+  expect(screen.getByRole('complementary', { name: 'University LMS' })).toBeTruthy();
+  expect(r.called('focusDistrict')).toEqual([['focusDistrict', lms.id]]);
+  await act(async () => r.pick({ kind: 'vehicle' }));
+  expect(r.called('followVehicle')).toHaveLength(1);
 });

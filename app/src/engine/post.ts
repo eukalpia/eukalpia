@@ -13,10 +13,10 @@ import {
 import {
   Color,
   HalfFloatType,
+  Scene,
   type Texture,
   Vector2,
   type PerspectiveCamera,
-  type Scene,
   type Vector3,
   type WebGLRenderer,
 } from 'three';
@@ -31,6 +31,8 @@ import { TIER_SETTINGS, type QualityTier } from './quality';
 
 export interface PostStack {
   clouds: CloudPass;
+  /** Drawn over the finished frame: labels that must not be fogged, clouded or tone mapped. */
+  overlay: Scene;
   /** Photo mode: feed the path tracer's image in place of the rasterised colour (null returns to raster). */
   setInput(texture: Texture | null): void;
   /** How many path-traced samples the input holds (the denoiser narrows as they grow). */
@@ -95,6 +97,13 @@ export function createPost(
       ? ToneMappingMode.NEUTRAL
       : ToneMappingMode.ACES_FILMIC;
   composer.addPass(new EffectPass(camera, bloom, new ToneMappingEffect({ mode: toneMode })));
+  // Labels over the finished frame: no fog, clouds or tone mapping, before the last pass encodes for the screen.
+  const overlay = new Scene();
+  const overlayPass = new RenderPass(overlay, camera);
+  overlayPass.clear = false;
+  overlayPass.ignoreBackground = true;
+  overlayPass.skipShadowMapUpdate = true;
+  composer.addPass(overlayPass);
   const noise = new NoiseEffect({ premultiply: true });
   noise.blendMode.opacity.value = 0.035;
   composer.addPass(
@@ -106,6 +115,7 @@ export function createPost(
   const sun = new Color();
   return {
     clouds,
+    overlay,
     setInput(texture) {
       renderPass.enabled = texture === null;
       photoInput.enabled = texture !== null;

@@ -106,3 +106,23 @@ test('free flight moves along the view, rises and sinks, and stays inside the sk
   o.update(1);
   expect(camera.position.distanceTo(before)).toBeLessThan(1e-6);
 });
+
+test('following a moving target keeps the camera at its offset until a drag lets go', () => {
+  const dom = fakeDom();
+  const camera = new PerspectiveCamera();
+  const o = createOrbit(camera, dom, { reducedMotion: true });
+  const pod = new Vector3(100, 80, 0);
+  o.follow(() => pod);
+  expect(o.tourActive).toBe(false);
+  for (let i = 0; i < 200; i++) o.update(0.05);
+  const offset = camera.position.clone().sub(pod);
+  expect(o.controls.target.distanceTo(pod)).toBeLessThan(1);
+  pod.set(200, 80, 50);
+  for (let i = 0; i < 200; i++) o.update(0.05);
+  expect(o.controls.target.distanceTo(pod)).toBeLessThan(1);
+  expect(camera.position.clone().sub(pod).distanceTo(offset)).toBeLessThan(1);
+  dom.dispatch('pointerdown', { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10 });
+  pod.set(400, 80, 50);
+  o.update(0.05);
+  expect(o.controls.target.distanceTo(pod)).toBeGreaterThan(100);
+});

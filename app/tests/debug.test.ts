@@ -22,6 +22,8 @@ test('street shots are recognised', () => {
   expect(parseShotParams('?shot=street-corner').shot).toBe('street-corner');
   expect(parseShotParams('?shot=lms-lift').shot).toBe('lms-lift');
   expect(parseShotParams('?shot=lms-roof').shot).toBe('lms-roof');
+  expect(parseShotParams('?shot=character-closeup').shot).toBe('character-closeup');
+  expect(parseShotParams('?shot=character-three-quarter').shot).toBe('character-three-quarter');
 });
 
 test('character shots are recognised', () => {
@@ -31,4 +33,5 @@ test('character shots are recognised', () => {
 
 test('walkcycle is a debug flag', () => {
   expect(parseShotParams('?debug=walkcycle').debug).toEqual(['walkcycle']);
+  expect(parseShotParams('?debug=tm-aces,tm-neutral').debug).toEqual(['tm-aces', 'tm-neutral']);
 });

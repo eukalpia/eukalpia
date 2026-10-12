@@ -21,6 +21,7 @@ import { planClutter } from '../world/street/clutter';
 import { createClutterMeshes } from '../world/street/clutterMeshes';
 import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
+import { upgradeCharacterMaterials } from '../character/materials';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
@@ -151,6 +152,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     .then(model => {
       if (disposed) return model.dispose();
       model.root.position.set(CHARACTER_SPAWN.x, layout.islands[0].topY, CHARACTER_SPAWN.z);
+      upgradeCharacterMaterials(model.root, { tier: opts.quality });
       for (const m of model.skinned) sun.setupMaterial(m.material as MeshStandardMaterial);
       scene.add(model.root);
       character = model;

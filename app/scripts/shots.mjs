@@ -1,7 +1,7 @@
 // Visual shot harness: builds are served with `vite preview`, rendered in headless Chromium
 // (SwiftShader), and checked for console errors, shader failures and frame budgets.
 //
-// Usage: node scripts/shots.mjs [--quality=high|medium|low] [--no-webgl] [--no-float] [--photo=N] [--size=WxH] <shot...>
+// Usage: node scripts/shots.mjs [--quality=high|medium|low] [--no-webgl] [--no-float] [--photo=N] [--size=WxH] [--port=N] <shot...>
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -10,7 +10,7 @@ import { chromium } from 'playwright-core';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'test-results', 'shots');
-const port = 4173;
+const port = Number(process.argv.find(a => a.startsWith('--port='))?.split('=')[1] ?? 4173);
 const base = `http://localhost:${port}/eukalpia/`;
 
 const args = process.argv.slice(2);
@@ -139,7 +139,7 @@ try {
       outDir,
       `${shot}${timeOverride ? `-${timeOverride}` : ''}${debugFlags ? `-${debugFlags.replaceAll(',', '-')}` : ''}${quality === 'high' ? '' : `-${quality}`}.png`,
     );
-    await page.screenshot({ path: file });
+    await page.screenshot({ path: file, timeout: 180000 });
     const s = await page.evaluate(() => window.__eukalpia.stats());
     s.seconds = Math.round((Date.now() - started) / 100) / 10;
     stats[shot] = s;
@@ -160,7 +160,8 @@ try {
           polling: 5000,
         });
         const photoFile = file.replace(/\.png$/, `-photo${photoSamples}.png`);
-        await page.screenshot({ path: photoFile });
+        // The traced frame alone, without the interface on top.
+        await page.locator('canvas').screenshot({ path: photoFile, timeout: 180000 });
         const triangles = await page.evaluate(() => window.__eukalpia.photo.triangles());
         s.photo = {
           samples: photoSamples,
@@ -206,7 +207,10 @@ try {
   }
   if (!noWebgl)
     await writeFile(
-      join(outDir, `stats${quality === 'high' ? '' : `-${quality}`}.json`),
+      join(
+        outDir,
+        `stats${quality === 'high' ? '' : `-${quality}`}${photoSamples ? `-photo-${shots.join('-')}` : ''}.json`,
+      ),
       JSON.stringify(stats, null, 2),
     );
   await browser.close();

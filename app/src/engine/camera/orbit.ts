@@ -31,6 +31,9 @@ export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = 
   // UR-01 stands at CHARACTER_SPAWN facing +z; front and left-side portraits from 3.6 m.
   'character-front': { position: [69, 1.15, 153.6], target: [69, 0.95, 150] },
   'character-side': { position: [72.6, 1.15, 150], target: [69, 0.95, 150] },
+  // Close looks at UR-01's materials: head and chest from 2.2 m, and a three-quarter view.
+  'character-closeup': { position: [69, 1.55, 152.2], target: [69, 1.35, 150] },
+  'character-three-quarter': { position: [71.2, 1.45, 152.4], target: [69, 1.0, 150] },
 };
 
 export interface TourPose {

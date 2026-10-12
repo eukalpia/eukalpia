@@ -25,6 +25,9 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug }
   const worldRef = useRef<World | null>(null);
   const [postcard, setPostcard] = useState(!webgl2);
   const [time, setTime] = useState<TimeOfDay>(initialTime);
+  // The world may still be loading when the visitor toggles Day/Night; apply the latest choice once it exists.
+  const timeRef = useRef(time);
+  timeRef.current = time;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,6 +37,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug }
       .then(world => {
         if (disposed) return world.dispose();
         worldRef.current = world;
+        if (timeRef.current !== initialTime) world.setTime(timeRef.current);
       })
       .catch(error => {
         console.warn('EUKALPIA: falling back to postcard mode.', error);

@@ -10,7 +10,6 @@ import {
   Vector3,
   type Camera,
 } from 'three';
-import type { QualityTier } from '../engine/quality';
 import type { CharacterModel } from './model';
 
 export interface Presence {
@@ -28,8 +27,6 @@ const BODY_OPACITY = 0.32;
 const LIFT_FADE = 0.35;
 const NEAR = 8;
 const FAR = 25;
-/** Render layer UR-01 joins so the close-up light can shadow it alone. */
-export const CHARACTER_LAYER = 2;
 
 /** Soft round falloff in every channel (alphaMap reads green). */
 function blobTexture(size = 64): DataTexture {
@@ -52,7 +49,7 @@ function blobTexture(size = 64): DataTexture {
  * Grounds UR-01: soft contact shadows under the feet and body, and a gentle rim and fill light that
  * follow the camera for close views (the sun alone leaves a dark coat flat in shade).
  */
-export function createPresence(model: CharacterModel, ctx: { tier: QualityTier }): Presence {
+export function createPresence(model: CharacterModel): Presence {
   const group = new Group();
   group.name = 'UR-01 presence';
   const texture = blobTexture();
@@ -68,15 +65,9 @@ export function createPresence(model: CharacterModel, ctx: { tier: QualityTier }
   const feet: [Mesh, Mesh] = [blob(0.34, 0.5, FOOT_OPACITY), blob(0.34, 0.5, FOOT_OPACITY)];
   const body = blob(1.1, 0.85, BODY_OPACITY);
 
-  // Its shadow is for UR-01's own folds and straps only: the street has the sun's cascades.
-  model.root.traverse(o => o.layers.enable(CHARACTER_LAYER));
+  // No shadow: three's shadow pass would draw every caster in the cone (whole instanced streets)
+  // and cannot be limited to UR-01; the sun's cascades already shade its folds.
   const rim = new SpotLight(0xfff1e2, 0, 9, 0.55, 1, 2);
-  rim.shadow.camera.layers.set(CHARACTER_LAYER);
-  rim.castShadow = ctx.tier === 'high';
-  rim.shadow.mapSize.set(512, 512);
-  rim.shadow.bias = -0.0004;
-  rim.shadow.camera.near = 0.5;
-  rim.shadow.camera.far = 9;
   const fill = new SpotLight(0xdfe8ff, 0, 9, 0.7, 1, 2);
   const target = new Object3D();
   rim.target = target;

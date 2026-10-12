@@ -97,6 +97,18 @@ export interface World {
   setCompleted(on: boolean): void;
   /** After its discovery the cat walks its roof. */
   setCatFound(found: boolean): void;
+  /** The walking interface's hooks into UR-01 (no-ops until UR-01 has loaded). */
+  walkControls: {
+    setStick(x: number, y: number): void;
+    setRun(on: boolean): void;
+    jump(): void;
+    toggleView(): void;
+    firstPerson(): boolean;
+    /** Looks along the view from the screen centre (within 33 m) and reports what it hits as a pick. */
+    inspect(): void;
+    /** Rides or calls the LMS lift when it is in reach. */
+    lift(): void;
+  };
   photo: {
     enter(): Promise<PhotoResult>;
     exit(): void;
@@ -234,7 +246,10 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       walk.onAction(a => a === 'exit' && setMode('orbit'));
       walkState = 'ready';
       walk.onAction(a => a === 'transit' && lift.press(walk!.controller.position));
+      walk.onAction(a => a === 'inspect' && inspectAhead());
+      // Shots stay on their preset unless the walk flag asks for the walking view.
       if (opts.sector === 'street' && !opts.shot) setMode('walk');
+      if (flags.has('walk')) setMode('walk');
     })
     .catch(error => {
       walkState = 'failed';
@@ -430,6 +445,16 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     const hit = pickAt(e);
     if (hit) for (const fn of pickListeners) fn(hit.target);
   };
+  // F / INSPECT while walking: v1 looked 12 units ahead (33 m at its scale).
+  const ahead = new Vector3();
+  function inspectAhead() {
+    camera.getWorldDirection(ahead);
+    raycaster.set(camera.position, ahead);
+    raycaster.far = 33;
+    const hit = pickNearest(raycaster.ray, [...pickables, ...secrets.pickables()], 33);
+    raycaster.far = Infinity;
+    if (hit) for (const fn of pickListeners) fn(hit.target);
+  }
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('pointerdown', onPointerDown);
@@ -568,6 +593,17 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     },
     setCompleted: on => secrets.setCompleted(on),
     setCatFound: found => secrets.setCatFound(found),
+    walkControls: {
+      setStick: (x, y) => walk?.input.setStick(x, y),
+      setRun: on => walk?.input.setRun(on),
+      jump: () => walk?.input.pressJump(),
+      toggleView: () => walk?.cameras.toggle(),
+      firstPerson: () => walk?.cameras.mode === 'first',
+      inspect: () => walk?.active && inspectAhead(),
+      lift: () => {
+        if (walk?.active) lift.press(walk.controller.position);
+      },
+    },
     setFly: on => orbit.setFly(on),
     setFlyInput: input => orbit.setFlyInput(input),
     setPixelated(on) {

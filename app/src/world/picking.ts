@@ -14,15 +14,15 @@ export interface Pickable {
 
 const hit = new Vector3();
 
-/** The pickable whose box the ray enters first, or null. */
-export function pickNearest(ray: Ray, items: readonly Pickable[]): Pickable | null {
+/** The pickable whose box the ray enters first (within maxDistance), or null. */
+export function pickNearest(ray: Ray, items: readonly Pickable[], maxDistance = Infinity): Pickable | null {
   let best: Pickable | null = null;
   let bestDistance = Infinity;
   for (const item of items) {
     const box = typeof item.box === 'function' ? item.box() : item.box;
     if (!ray.intersectBox(box, hit)) continue;
     const d = hit.distanceTo(ray.origin);
-    if (d < bestDistance) {
+    if (d < bestDistance && d <= maxDistance) {
       bestDistance = d;
       best = item;
     }

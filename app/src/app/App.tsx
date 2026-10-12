@@ -10,6 +10,7 @@ import { DiscoveriesPanel } from './panels/Discoveries';
 import { HelpPanel } from './panels/Help';
 import { ProjectsPanel } from './panels/Projects';
 import { PhotoPanel } from './PhotoPanel';
+import { WalkControls } from './walk/WalkControls';
 import { discover, loadSignals, saveSignals } from './signals';
 import { initialUiState, uiReducer, type UiAction } from './state';
 import type { SignalId } from '../content/signals';
@@ -219,16 +220,24 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     };
   }, [ui.fly, world]);
 
-  // Temporary lift hint until the walking controls land: what the L key would do right now.
-  const [liftHint, setLiftHint] = useState<string | null>(null);
+  // While walking: the lift's status and the camera view, polled for the walk panel.
+  const [lift, setLift] = useState<{ label: string; available: boolean } | null>(null);
+  const [firstPerson, setFirstPerson] = useState(false);
+  const [running, setRunning] = useState(false);
   useEffect(() => {
-    if (!ui.walking) return setLiftHint(null);
-    const id = window.setInterval(() => {
-      const s = worldRef.current?.liftStatus?.();
-      setLiftHint(!s || s.label === 'LMS lift · locating…' ? null : s.available ? `L · ${s.label}` : s.label);
-    }, 200);
+    if (!ui.walking) {
+      setRunning(false);
+      return;
+    }
+    const tick = () => {
+      setLift(worldRef.current?.liftStatus?.() ?? null);
+      setFirstPerson(worldRef.current?.walkControls?.firstPerson() ?? false);
+    };
+    tick();
+    const id = window.setInterval(tick, 200);
     return () => window.clearInterval(id);
   }, [ui.walking]);
+  useEffect(() => world?.walkControls?.setRun(running), [world, running]);
 
   const [shareCopied, setShareCopied] = useState(false);
   useEffect(() => {
@@ -373,7 +382,24 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
           <small>SIGNAL RECOVERED / SEVEN KNOCKS</small>
         </div>
       )}
-      {liftHint && <p className="world-hint">{liftHint}</p>}
+      {ui.walking && ui.panel === null && ui.selected === null && world && (
+        <WalkControls
+          firstPerson={firstPerson}
+          lift={lift}
+          running={running}
+          onView={() => {
+            world.walkControls?.toggleView();
+            setFirstPerson(world.walkControls?.firstPerson() ?? false);
+          }}
+          onLift={() => world.walkControls?.lift()}
+          onProjects={() => act({ type: 'panel', panel: 'districts' })}
+          onExit={() => act({ type: 'go', sector: 'overview' })}
+          onStick={(x, y) => world.walkControls?.setStick(x, y)}
+          onRun={() => setRunning(r => !r)}
+          onJump={() => world.walkControls?.jump()}
+          onInspect={() => world.walkControls?.inspect()}
+        />
+      )}
       {ui.panel === 'districts' && <ProjectsPanel onSelect={id => act({ type: 'select', id })} onClose={closePanel} />}
       {ui.panel === 'signals' && <DiscoveriesPanel found={signals} onClose={closePanel} />}
       {ui.panel === 'author' && (

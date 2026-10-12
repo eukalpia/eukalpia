@@ -412,19 +412,6 @@ kbd {
 .world-guidance svg {
   color: #d5b591ae;
 }
-.world-hint {
-  position: absolute;
-  left: 50%;
-  bottom: 133px;
-  transform: translateX(-50%);
-  z-index: 5;
-  margin: 0;
-  pointer-events: none;
-  color: #d4dedf;
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-shadow: 0 1px 8px #04101a;
-}
 
 /* ---------- footer: credit + dock ---------- */
 .world-interface {
@@ -1081,6 +1068,332 @@ kbd {
   }
 }
 
+/* ---------- walk mode (v1, unlayered) ---------- */
+.walking-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  color: #d4dedf;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.walking-controls button {
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+.walk-identity {
+  position: absolute;
+  top: 28px;
+  left: 26px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 12px #06101b;
+}
+.walk-identity small {
+  display: block;
+  margin-top: 5px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #a8b7bd;
+}
+.walk-view-label {
+  padding-left: 12px;
+  border-left: 1px solid #adc7ce38;
+  font-size: 9px;
+  color: #a9c1bb;
+}
+.walk-toolbar {
+  position: absolute;
+  top: 78px;
+  left: 24px;
+  display: flex;
+  gap: 7px;
+}
+.walk-toolbar button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 12px;
+  font-size: 11px;
+  background: #0a1822d9;
+  border: 1px solid #b7c9d233;
+  border-radius: 4px;
+  backdrop-filter: blur(12px);
+}
+.walk-toolbar button:hover {
+  color: #edc391;
+  border-color: #e6bf8c7a;
+}
+.walk-toolbar button:disabled {
+  color: #a6b5b8;
+  opacity: 0.72;
+}
+.walk-toolbar .walk-lift span {
+  max-width: 150px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.walk-toolbar kbd,
+.walk-desktop-hints kbd {
+  padding: 3px 5px;
+  font-size: 10px;
+  background: #c6d7d511;
+  border: 1px solid #b9cac435;
+  border-radius: 3px;
+}
+.walk-desktop-hints {
+  position: absolute;
+  left: 50%;
+  bottom: 35px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 21px;
+  white-space: nowrap;
+  font-size: 10px;
+  text-shadow: 0 1px 8px #04101a;
+}
+.walk-desktop-hints > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.walk-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  border-radius: 50%;
+  background: #d9ece0bd;
+  box-shadow: 0 0 2px 2px #04101855;
+}
+.walk-stick,
+.walk-touch-actions,
+.walk-touch-hint {
+  display: none;
+}
+@media (pointer: coarse), (max-width: 800px) {
+  .walk-identity {
+    top: 22px;
+    left: 18px;
+    gap: 8px;
+    font-size: 11px;
+  }
+  .walk-identity small {
+    font-size: 8px;
+  }
+  .walk-view-label,
+  .walk-desktop-hints,
+  .walk-toolbar kbd {
+    display: none;
+  }
+  .walk-toolbar {
+    top: 77px;
+    left: 15px;
+    right: 15px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .walk-toolbar button {
+    min-height: 44px;
+    padding: 9px;
+    font-size: 10px;
+  }
+  .walk-toolbar .walk-lift {
+    max-width: min(230px, 100vw - 160px);
+  }
+  .walk-stick {
+    position: absolute;
+    left: max(24px, env(safe-area-inset-left));
+    bottom: max(42px, env(safe-area-inset-bottom));
+    display: grid;
+    place-items: center;
+    width: 126px;
+    height: 126px;
+    padding: 0;
+    border-radius: 50%;
+    background: radial-gradient(#c7dddb0c, #0c1a24a6);
+    border: 1px solid #c1d5da47;
+    backdrop-filter: blur(6px);
+  }
+  .stick-ring {
+    position: absolute;
+    inset: 21px;
+    border: 1px dashed #c8d4cb29;
+    border-radius: 50%;
+  }
+  .stick-knob {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    color: #e1c198;
+    background: linear-gradient(135deg, #41525ccf, #142632df);
+    border: 1px solid #c1d4d56b;
+    box-shadow: 0 3px 16px #03080e80;
+  }
+  .stick-caption {
+    position: absolute;
+    left: 0;
+    bottom: -22px;
+    width: 100%;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #b7c9cbb3;
+  }
+  .walk-touch-actions {
+    position: absolute;
+    right: max(24px, env(safe-area-inset-right));
+    bottom: max(56px, env(safe-area-inset-bottom));
+    display: flex;
+    align-items: flex-end;
+    gap: 11px;
+  }
+  .walk-touch-actions button {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 59px;
+    height: 59px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 9px;
+    color: #c8d7d7;
+    background: #0c1a25c9;
+    border: 1px solid #bdcfd34d;
+    backdrop-filter: blur(6px);
+  }
+  .walk-touch-actions .walk-jump {
+    width: 75px;
+    height: 75px;
+    color: #ecd0a4;
+    border-color: #d9ba8261;
+  }
+  .walk-touch-actions .is-running {
+    color: #e4bf85;
+    background: #3c3529cc;
+  }
+  .walk-touch-actions .walk-inspect {
+    position: absolute;
+    right: 12px;
+    bottom: 88px;
+    width: 52px;
+    height: 52px;
+    font-size: 8px;
+  }
+  .walk-touch-hint {
+    position: absolute;
+    right: 24px;
+    bottom: 212px;
+    display: block;
+    max-width: 140px;
+    margin: 0;
+    text-align: right;
+    font-size: 9px;
+    line-height: 1.7;
+    letter-spacing: 1px;
+    color: #c9dbd48c;
+  }
+}
+@media (max-height: 520px) {
+  .walk-stick {
+    width: 106px;
+    height: 106px;
+    bottom: 30px;
+  }
+  .walk-touch-actions {
+    bottom: 35px;
+  }
+  .walk-touch-hint {
+    bottom: 130px;
+  }
+  .walk-identity {
+    top: 17px;
+  }
+  .walk-toolbar {
+    top: 64px;
+  }
+}
+@media (max-width: 360px) {
+  .walk-identity {
+    top: 16px;
+    left: 12px;
+  }
+  .walk-toolbar {
+    top: 65px;
+    left: 10px;
+  }
+  .walk-toolbar button {
+    justify-content: center;
+    width: 44px;
+    padding: 8px;
+  }
+  .walk-toolbar button span {
+    display: none;
+  }
+  .walk-toolbar .walk-lift {
+    justify-content: flex-start;
+    width: min(124px, 100vw - 194px);
+  }
+  .walk-toolbar .walk-lift span {
+    display: block;
+    max-width: calc(100% - 25px);
+  }
+  .walk-stick {
+    left: max(12px, env(safe-area-inset-left));
+    bottom: max(32px, env(safe-area-inset-bottom));
+    width: 104px;
+    height: 104px;
+  }
+  .stick-ring {
+    inset: 17px;
+  }
+  .stick-knob {
+    width: 46px;
+    height: 46px;
+  }
+  .stick-caption {
+    bottom: -18px;
+  }
+  .walk-touch-actions {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(38px, env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  .walk-touch-actions button {
+    width: 52px;
+    height: 52px;
+  }
+  .walk-touch-actions .walk-jump {
+    width: 64px;
+    height: 64px;
+  }
+  .walk-touch-actions .walk-inspect {
+    width: 48px;
+    height: 48px;
+    bottom: 76px;
+    right: 6px;
+  }
+  .walk-touch-hint {
+    max-width: 120px;
+    font-size: 8px;
+    bottom: 174px;
+    right: 12px;
+  }
+}
+
 /* ---------- walk mode hides the orbit chrome ---------- */
 .is-walking .world-interface,
 .is-walking .world-location,
@@ -1205,7 +1518,6 @@ kbd {
     font-size: 11px;
   }
   .world-guidance,
-  .world-hint,
   .fallback figcaption {
     bottom: 198px;
     max-width: calc(100% - 36px);
@@ -1342,7 +1654,6 @@ kbd {
     display: none;
   }
   .world-guidance,
-  .world-hint,
   .fallback figcaption {
     bottom: 105px;
   }

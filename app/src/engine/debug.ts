@@ -51,6 +51,7 @@ export type DebugFlag =
   | 'nobloom'
   | 'noao'
   | 'walkcycle'
+  | 'walk'
   // Tone-mapping A/B for look development.
   | 'tm-aces'
   | 'tm-neutral';
@@ -65,6 +66,7 @@ const DEBUG_FLAGS: readonly DebugFlag[] = [
   'tm-aces',
   'tm-neutral',
   'walkcycle',
+  'walk',
 ];
 
 export interface ShotParams {

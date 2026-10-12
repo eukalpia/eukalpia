@@ -7,14 +7,22 @@
 
 ## Кадры после 256 сэмплов
 
-PHOTO_ROWS
+| Ракурс | Растр (вызовы, треугольники) | Сцена трассировщика | 256 сэмплов | Кадр |
+|---|---|---|---|---|
+| orbit-day | 518, 3,87 M | 24,7 с, 1,01 M треугольников | 1008 с | `orbit-day-photo256.png` |
+| street-day | 629, 4,99 M | 26,6 с, 1,09 M треугольников | 1825 с | `street-day-photo256.png` |
+| street-night | 580, 4,92 M | 17,7 с, 1,09 M треугольников | 2748 с | `street-night-photo256.png` |
+
+Время — SwiftShader на 4 ядрах, параллельно с другими рендерами; кадры чистые, без светлячков, сцена
+держится в бюджете 3 M треугольников. Отказ без `EXT_color_buffer_float` проверен (`--no-float`).
 
 ## Что проверено
 
 - Отказ без `EXT_color_buffer_float`: сообщение «Photo mode needs floating-point render targets
   (EXT_color_buffer_float), which this GPU does not offer.», кнопка PHOTO возвращается, город продолжает рисоваться.
 - Код трассировщика вынесен в отдельный чанк (`lazy-*.js`, ~170 КБ) и воркер BVH; основной чанк его не содержит.
-- TESTS
+- Тесты фото-режима (`bake`, `photoScene`, `photoEnvironment`, `photoSession`, `denoise`, `edges`,
+  `photoPanel`) зелёные в полном прогоне: 55 файлов, 386 тестов.
 
 ## Найдено и исправлено при доводке
 

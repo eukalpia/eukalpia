@@ -32,3 +32,16 @@ test('a shot preset freezes the camera exactly', () => {
   expect(o.tourActive).toBe(false);
   expect(camera.position.toArray()).toEqual(SHOT_PRESETS.underside.position);
 });
+
+test('the tour can be stopped from code (photo mode needs a still camera)', () => {
+  const dom = fakeDom();
+  const camera = new PerspectiveCamera();
+  const orbit = createOrbit(camera, dom as unknown as HTMLElement, { reducedMotion: false });
+  expect(orbit.tourActive).toBe(true);
+  orbit.stopTour();
+  expect(orbit.tourActive).toBe(false);
+  const before = camera.position.clone();
+  orbit.update(1);
+  expect(camera.position.distanceTo(before)).toBeLessThan(1e-6);
+  orbit.dispose();
+});

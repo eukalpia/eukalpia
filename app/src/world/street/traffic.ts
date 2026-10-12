@@ -335,8 +335,15 @@ export function podPose(way: Skyway, index: number, t: number): { x: number; y: 
   return { ...p, rotY: Math.atan2(-tz, tx) };
 }
 
+/** UR-07 · Meridian air taxi: the first pod of the first skyway, the one a click can follow. */
+export function heroPodPose(ways: readonly Skyway[], t: number) {
+  return podPose(ways[0], 0, t);
+}
+
 export interface Traffic {
   group: Group;
+  /** Where UR-07, the hero air taxi, is now. */
+  heroPod(out: Vector3): Vector3;
   /** Advances cars by dt; t is the shared street clock the signals run on; camera picks detailed bodies. */
   update(dt: number, t: number, camera?: Vector3): void;
   setNight(night: boolean): void;
@@ -444,6 +451,10 @@ export function createTraffic(
 
   return {
     group,
+    heroPod(out) {
+      const pose = heroPodPose(ways, t);
+      return out.set(pose.x, pose.y, pose.z);
+    },
     update(dt, clock, camera) {
       t += dt;
       if (camera) viewer.copy(camera);

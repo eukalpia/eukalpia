@@ -8,6 +8,7 @@ import {
   carPose,
   createTrafficSim,
   lightsGeometry,
+  heroPodPose,
   planSkyways,
   planTraffic,
   podPose,
@@ -164,4 +165,9 @@ test('head and tail glow sits on the car lamp lenses, inside the body outline', 
     expect(front ? box.min.x : -box.max.x).toBeGreaterThan(2.2);
     expect(front ? box.max.x : -box.min.x).toBeLessThan(2.25);
   }
+});
+
+test('UR-07, the hero air taxi, is the first pod of the first skyway', () => {
+  const ways = planSkyways(DEFAULT_SEED, specs);
+  for (const t of [0, 12.5, 300]) expect(heroPodPose(ways, t)).toEqual(podPose(ways[0], 0, t));
 });

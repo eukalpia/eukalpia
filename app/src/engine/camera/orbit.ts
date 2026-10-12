@@ -83,6 +83,8 @@ export interface Orbit {
   /** Keyboard free flight: forward/right along the view, up for altitude. */
   setFly(on: boolean): void;
   setFlyInput(input: { forward: number; right: number; up: number }): void;
+  /** Chase a moving point (the air taxi) at the current offset; a drag or any navigation lets go. */
+  follow(get: () => Vector3): void;
   readonly controls: OrbitControls;
   dispose(): void;
 }
@@ -115,9 +117,11 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
     tourActive = on;
     for (const fn of listeners) fn(on);
   };
+  let chase: (() => Vector3) | null = null;
   const stopTour = () => {
     setTour(false);
     flight = null;
+    chase = null;
   };
   dom.addEventListener('pointerdown', stopTour);
   dom.addEventListener('wheel', stopTour);
@@ -141,6 +145,7 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
     stopTour,
     startTour() {
       flight = null;
+      chase = null;
       frozen = false;
       controls.enabled = true;
       controls.target.fromArray(ORBIT_LIMITS.target);
@@ -150,8 +155,16 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
     onTourChange(fn) {
       listeners.push(fn);
     },
+    follow(get) {
+      setTour(false);
+      flight = null;
+      frozen = false;
+      controls.enabled = true;
+      chase = get;
+    },
     flyTo(position, target) {
       setTour(false);
+      chase = null;
       frozen = false;
       controls.enabled = true;
       if (opts.reducedMotion) {
@@ -191,6 +204,13 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
           controls.target.copy(flight.target);
           flight = null;
         }
+      }
+      if (chase) {
+        // Keep the camera's offset from the target while the target moves.
+        const k = 1 - Math.exp(-4 * Math.min(dt, 0.05));
+        move.copy(chase()).sub(controls.target).multiplyScalar(k);
+        controls.target.add(move);
+        camera.position.add(move);
       }
       if (flying && (flyInput.forward || flyInput.right || flyInput.up)) {
         camera.getWorldDirection(forward);

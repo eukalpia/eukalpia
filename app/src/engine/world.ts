@@ -1,7 +1,10 @@
 import {
   AgXToneMapping,
+  Box3,
   Color,
+  Raycaster,
   Timer,
+  Vector2,
   MeshStandardMaterial,
   NoToneMapping,
   PCFShadowMap,
@@ -24,6 +27,8 @@ import { loadCharacter, measureBindPose } from '../character/model';
 import { upgradeCharacterMaterials } from '../character/materials';
 import { createPresence, type Presence } from '../character/presence';
 import { focusPose, landmarkFrames } from '../world/landmarks';
+import { isClick, pickNearest, type Pickable, type PickTarget } from '../world/picking';
+import { createSigns } from '../world/signs';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
@@ -77,6 +82,12 @@ export interface World {
   setFlyInput(input: { forward: number; right: number; up: number }): void;
   /** v1's pixel vision: a coarse, crisp render (pixel ratio 0.62). */
   setPixelated(on: boolean): void;
+  /** The label under the pointer in orbit (a district or a hidden object); null when nothing. */
+  onHover(fn: (label: string | null) => void): void;
+  /** A click (not a drag) on a district, a hidden object or the air taxi. */
+  onPick(fn: (target: PickTarget) => void): void;
+  /** Chases UR-07 until a drag or a navigation lets go. */
+  followVehicle(): void;
   photo: {
     enter(): Promise<PhotoResult>;
     exit(): void;
@@ -131,6 +142,28 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const city = createCityMeshes(layout, DISTRICTS, { tier: opts.quality, sun, textures });
   scene.add(city.group);
   const landmarks = landmarkFrames(city.specs);
+  const signs = createSigns(landmarks, DISTRICTS);
+  scene.add(signs.group);
+  post.overlay.add(signs.labels);
+  // Everything a click can land on; the hidden objects join later.
+  const pickables: Pickable[] = [];
+  for (const spec of city.specs) {
+    if (spec.districtId === undefined) continue;
+    const box = new Box3();
+    for (const t of spec.tiers)
+      box.union(
+        new Box3().set(
+          new Vector3(t.cx - t.width / 2, t.y0, t.cz - t.depth / 2),
+          new Vector3(t.cx + t.width / 2, t.y1, t.cz + t.depth / 2),
+        ),
+      );
+    const district = DISTRICTS.find(d => d.id === spec.districtId)!;
+    pickables.push({
+      box,
+      target: { kind: 'district', id: district.id },
+      label: district.displayName ?? district.name,
+    });
+  }
 
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
@@ -313,6 +346,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     canWorker: () => typeof Worker !== 'undefined',
     onActive: active => {
       photoActive = active;
+      // A photograph of the city, without its labels.
+      signs.labels.visible = !active;
       // Walking freezes while tracing; the orbit camera still moves (and restarts accumulation).
       walk?.input.clear();
       if (active) orbit.stopTour();
@@ -336,6 +371,51 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   });
 
   debug.photo = { enter: () => photo.enter(), status: () => photo.status(), triangles: () => photo.triangles };
+
+  const heroBox = new Box3();
+  const heroAt = new Vector3();
+  pickables.push({
+    box: () => heroBox.setFromCenterAndSize(traffic.heroPod(heroAt), new Vector3(14, 7, 14)),
+    target: { kind: 'vehicle' },
+    label: 'UR-07 · Meridian air taxi',
+  });
+  const hoverListeners: ((label: string | null) => void)[] = [];
+  const pickListeners: ((target: PickTarget) => void)[] = [];
+  const raycaster = new Raycaster();
+  const ndc = new Vector2();
+  let pressedAt: { x: number; y: number } | null = null;
+  let hovered: string | null = null;
+  const canPick = () => mode === 'orbit' && !photoActive;
+  const pickAt = (e: PointerEvent) => {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    return pickNearest(raycaster.ray, pickables);
+  };
+  const setHover = (label: string | null) => {
+    if (label === hovered) return;
+    hovered = label;
+    canvas.style.cursor = label ? 'pointer' : '';
+    for (const fn of hoverListeners) fn(label);
+  };
+  const onPointerMove = (e: PointerEvent) => {
+    if (!canPick() || e.buttons) return;
+    setHover(pickAt(e)?.label ?? null);
+  };
+  // Fixed v1 quirk: leaving the canvas clears the label.
+  const onPointerLeave = () => setHover(null);
+  const onPointerDown = (e: PointerEvent) => (pressedAt = { x: e.clientX, y: e.clientY });
+  const onPointerUp = (e: PointerEvent) => {
+    const from = pressedAt;
+    pressedAt = null;
+    if (!from || !canPick() || !isClick(from, { x: e.clientX, y: e.clientY })) return;
+    const hit = pickAt(e);
+    if (hit) for (const fn of pickListeners) fn(hit.target);
+  };
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerleave', onPointerLeave);
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointerup', onPointerUp);
 
   function frame(timestamp?: number) {
     timer.update(timestamp);
@@ -364,6 +444,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     clutter.update(streetClock);
     updateStreetLights(currentTime === 'night');
     presence?.update(camera, currentTime === 'night');
+    camera.updateMatrixWorld();
+    signs.update(camera);
     sun.update();
     photo.frame();
     renderer.info.reset();
@@ -420,6 +502,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     onModeChange: fn => void modeListeners.push(fn),
     walkState: () => walkState,
     setSector(sector) {
+      signs.setFocus(null);
       if (sector === 'street') return setMode('walk');
       if (mode === 'walk') setMode('orbit');
       const pose = sector === 'underworld' ? UNDERWORLD_POSE : OVERVIEW_POSE;
@@ -430,6 +513,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       const frame = landmarks.get(id);
       if (!frame) return;
       if (mode === 'walk') setMode('orbit');
+      signs.setFocus(id);
       const pose = focusPose(frame);
       orbit.flyTo(pose.position, pose.target);
     },
@@ -443,6 +527,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       else orbit.stopTour();
     },
     onTourChange: fn => orbit.onTourChange(fn),
+    onHover: fn => void hoverListeners.push(fn),
+    onPick: fn => void pickListeners.push(fn),
+    followVehicle: () => orbit.follow(() => traffic.heroPod(heroAt)),
     setFly: on => orbit.setFly(on),
     setFlyInput: input => orbit.setFlyInput(input),
     setPixelated(on) {
@@ -462,6 +549,11 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     },
     dispose() {
       disposed = true;
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerleave', onPointerLeave);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      signs.dispose();
       walk?.dispose();
       character?.dispose();
       presence?.dispose();

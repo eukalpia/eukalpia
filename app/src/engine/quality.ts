@@ -67,10 +67,16 @@ const FAST_HOLD_S = 3;
 const STEP = 0.15;
 const MIN_DPR = 0.6;
 const SLOW_CEILING_S = 20;
+/** Longer gaps come from a hidden tab or a debugger pause, not from rendering. */
+const IGNORE_GAP_MS = 250;
+const VSYNC_MS = 1000 / 60;
 
 /** Lowers the pixel ratio while frames are slow and restores it once they are fast again. */
 export class AdaptiveResolution {
   private ema = 16;
+  /** Mean absolute deviation of frame time: a capped frame rate is slow but very steady. */
+  private jitter = 2;
+  private primed = false;
   private slowFor = 0;
   private fastFor = 0;
   private dpr: number;
@@ -83,9 +89,20 @@ export class AdaptiveResolution {
   }
 
   update(frameMs: number, dtSec: number): number | null {
+    if (frameMs > IGNORE_GAP_MS) return null;
+    if (!this.primed) {
+      // Start the averages at the first real frame instead of ramping up from a guess.
+      this.primed = true;
+      this.ema = frameMs;
+      this.jitter = 0;
+    }
+    this.jitter += (Math.abs(frameMs - this.ema) - this.jitter) * 0.1;
     this.ema += (frameMs - this.ema) * 0.1;
     if (this.ceiling !== Infinity && (this.ceilingFor -= dtSec) <= 0) this.ceiling = Infinity;
-    this.slowFor = this.ema > SLOW_FRAME_MS ? this.slowFor + dtSec : 0;
+    // Browsers in power-saving modes lock rendering to 30 or 20 Hz; that is not GPU load.
+    const multiple = this.ema / VSYNC_MS;
+    const capped = Math.round(multiple) >= 2 && Math.abs(multiple - Math.round(multiple)) < 0.1 && this.jitter < 1.2;
+    this.slowFor = this.ema > SLOW_FRAME_MS && !capped ? this.slowFor + dtSec : 0;
     this.fastFor = this.ema < FAST_FRAME_MS ? this.fastFor + dtSec : 0;
 
     let next = this.dpr;

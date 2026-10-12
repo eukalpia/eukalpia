@@ -104,3 +104,24 @@ describe('readDeviceInfo + detectTier', () => {
   test('a desktop with a discrete GPU is high', () => expect(detectTier(env({}))).toBe('high'));
   test('an Intel laptop is medium', () => expect(detectTier(env({ renderer: 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics)' }))).toBe('medium'));
 });
+
+describe('AdaptiveResolution under frame-rate caps', () => {
+  test('a steady 30 Hz cap (low-power mode) does not lower DPR', () => {
+    const a = new AdaptiveResolution(2);
+    for (let i = 0; i < 30 * 60; i++) expect(a.update(33.33 + Math.sin(i) * 0.3, 1 / 30)).toBeNull();
+  });
+
+  test('jittery GPU-bound frames around 33 ms still lower DPR', () => {
+    const a = new AdaptiveResolution(2);
+    let changed = false;
+    for (let i = 0; i < 30 * 10; i++) if (a.update(i % 2 ? 26 : 42, 1 / 30) !== null) changed = true;
+    expect(changed).toBe(true);
+  });
+
+  test('one long gap after a hidden tab is ignored', () => {
+    const a = new AdaptiveResolution(2);
+    for (let i = 0; i < 600; i++) a.update(16.7, 1 / 60);
+    expect(a.update(25000, 25)).toBeNull();
+    for (let i = 0; i < 120; i++) expect(a.update(16.7, 1 / 60)).toBeNull();
+  });
+});

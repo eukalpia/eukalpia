@@ -99,6 +99,20 @@ export function createAnimator(model: CharacterModel): Animator {
   let landing = 0;
   let wasGrounded = true;
   let lean = 0;
+  const pelvisBindX = pelvis.position.x;
+  const legLength = hipY - ankleY;
+  // Coat tails: angle and angular velocity of a damped spring per side.
+  const coat = { L: { a: 0, v: 0 }, R: { a: 0, v: 0 } };
+  const spring = (s: { a: number; v: number }, target: number, dt: number) => {
+    const k = 60;
+    const damping = 2 * Math.sqrt(k) * 0.35;
+    s.v += (k * (target - s.a) - damping * s.v) * dt;
+    s.a += s.v * dt;
+    return s.a;
+  };
+  // Smooth wandering value in −1..1 from a few incommensurate sines.
+  const wander = (t: number, seed: number) =>
+    (Math.sin(t * 0.37 + seed) + 0.6 * Math.sin(t * 0.83 + seed * 2.1) + 0.3 * Math.sin(t * 1.9 + seed * 3.7)) / 1.9;
 
   function leg(
     side: 'L' | 'R',
@@ -109,6 +123,8 @@ export function createAnimator(model: CharacterModel): Animator {
     ground: number,
     pelvisDrop: number,
     airborne: number,
+    lateral: number,
+    hipRoll: number,
   ) {
     const reach = footReach(phase) * stride * (1 - STANCE) * moving;
     const lift = footLift(phase, speed) * moving;
@@ -121,11 +137,13 @@ export function createAnimator(model: CharacterModel): Animator {
     const { hip: h, knee } = solveTwoBone(UPPER_LEG, LOWER_LEG, d);
     const alpha = Math.atan2(dz, dy);
     const thighPitch = -(alpha + h);
-    pose(`thigh.${side}`, thighPitch, 0, 0);
+    // A sideways pelvis shift is taken up by rolling the leg at the hip and back at the ankle.
+    const roll = Math.atan2(lateral, legLength) - hipRoll;
+    pose(`thigh.${side}`, thighPitch, 0, roll);
     pose(`shin.${side}`, knee, 0, 0);
     // Keep the sole level; peel the heel off at the end of stance.
     const toeOff = phase > STANCE - 0.12 && phase < STANCE + 0.05 ? (phase - (STANCE - 0.12)) / 0.17 : 0;
-    pose(`foot.${side}`, alpha + h - knee - toeOff * 0.45 * moving, 0, 0);
+    pose(`foot.${side}`, alpha + h - knee - toeOff * 0.45 * moving, 0, -roll);
     pose(`toe.${side}`, -toeOff * 0.5 * moving, 0, 0);
     return reach;
   }
@@ -151,20 +169,29 @@ export function createAnimator(model: CharacterModel): Animator {
       const bob = (0.5 - 0.5 * Math.cos(4 * Math.PI * phaseL)) * (0.02 + 0.03 * run) * moving;
       const drop = 0.025 * moving + 0.03 * run + bob + landDip - Math.min(0, Math.min(s.groundL, s.groundR));
       pelvis.position.y = pelvisBindY - drop;
+      // Standing, the weight drifts from one foot to the other every ~6.5 s.
+      const still = 1 - moving;
+      const shift = 0.018 * Math.sin((time * Math.PI * 2) / 6.5) * still;
+      pelvis.position.x = pelvisBindX + shift;
       const sway = Math.sin(2 * Math.PI * phaseL) * moving;
       lean += (run * 0.16 + moving * 0.03 - lean) * Math.min(1, dt * 4);
       const turnLean = Math.max(-0.12, Math.min(0.12, s.turnRate * speed * 0.03));
-      pose('pelvis', lean * 0.3, sway * 0.12, turnLean + sway * 0.03);
+      // The hips tilt with the weight shift; the legs take that tilt back out below.
+      const weightRoll = shift * 1.4;
+      pose('pelvis', lean * 0.3, sway * 0.12, turnLean + sway * 0.03 + weightRoll);
 
-      const reachL = leg('L', phaseL, moving, stride, speed, s.groundL, drop, airborne);
-      const reachR = leg('R', phaseR, moving, stride, speed, s.groundR, drop, airborne);
+      const reachL = leg('L', phaseL, moving, stride, speed, s.groundL, drop, airborne, -shift, weightRoll);
+      const reachR = leg('R', phaseR, moving, stride, speed, s.groundR, drop, airborne, -shift, weightRoll);
 
       // Torso counter-rotates against the pelvis; breathing when idle.
       const breath = Math.sin(time * Math.PI * 0.5) * 0.02 * (1 - moving);
       pose('spine', lean * 0.4 + breath, -sway * 0.1, 0);
       pose('chest', lean * 0.3 - breath * 0.5, -sway * 0.08, -turnLean * 0.5);
-      pose('neck', -lean * 0.5, sway * 0.04, 0);
-      pose('head', -lean * 0.2 + breath * 0.3, sway * 0.03, 0);
+      // Now and then UR-01 looks around: slow yaw, a little pitch.
+      const look = wander(time * 0.6, 1.3) * 0.32 * still;
+      const nod = wander(time * 0.5, 4.1) * 0.06 * still;
+      pose('neck', -lean * 0.5 + nod * 0.4, sway * 0.04 + look * 0.4, -shift * 0.8);
+      pose('head', -lean * 0.2 + breath * 0.3 + nod * 0.6, sway * 0.03 + look * 0.6, 0);
 
       // Arms hang closer to the body and swing opposite to the legs.
       const swingL = (reachR / Math.max(0.3, stride * 0.4)) * (0.35 + 0.35 * run);
@@ -181,14 +208,20 @@ export function createAnimator(model: CharacterModel): Animator {
       // Coat tails trail behind with speed and flutter; they lift when falling.
       const trail = Math.min(0.5, speed * 0.07) + airborne * 0.3;
       const flutter = Math.sin(time * (6 + speed * 2)) * 0.04 * moving;
-      pose('coat.L', trail + flutter - reachL * 0.4, 0, turnLean * 0.5);
-      pose('coat.R', trail - flutter - reachR * 0.4, 0, turnLean * 0.5);
-      pose('coat_tip.L', trail * 0.6 + flutter * 1.5, 0, 0);
-      pose('coat_tip.R', trail * 0.6 - flutter * 1.5, 0, 0);
+      // The tails chase their target on a spring, so they swing on after a stop and settle.
+      const coatL = spring(coat.L, trail + flutter - reachL * 0.4, dt);
+      const coatR = spring(coat.R, trail - flutter - reachR * 0.4, dt);
+      pose('coat.L', coatL, 0, turnLean * 0.5);
+      pose('coat.R', coatR, 0, turnLean * 0.5);
+      pose('coat_tip.L', coatL * 0.6 + flutter * 1.5, 0, 0);
+      pose('coat_tip.R', coatR * 0.6 - flutter * 1.5, 0, 0);
     },
     reset() {
       for (const r of rigs.values()) r.bone.quaternion.copy(r.bind);
       pelvis.position.y = pelvisBindY;
+      pelvis.position.x = pelvisBindX;
+      coat.L = { a: 0, v: 0 };
+      coat.R = { a: 0, v: 0 };
       distance = 0;
       landing = 0;
       lean = 0;

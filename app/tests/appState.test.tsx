@@ -143,6 +143,16 @@ test('the tour: Help starts it, a drag in the world ends it and the guidance fol
   expect(screen.getByText('DRAG TO ORBIT · SCROLL TO EXPLORE')).toBeTruthy();
 });
 
+test('the tour starts after the move to the overview: the world ends a tour whenever the camera flies', async () => {
+  const r = await mount({ sector: 'street' });
+  fireEvent.click(screen.getByRole('button', { name: 'Controls and help' }));
+  fireEvent.click(screen.getByRole('button', { name: /Start cinematic tour/ }));
+  const last = (name: string) => r.calls.findLastIndex(c => c[0] === name);
+  expect(r.calls[last('setSector')]).toEqual(['setSector', 'overview']);
+  expect(r.calls[last('setTour')]).toEqual(['setTour', true]);
+  expect(last('setTour')).toBeGreaterThan(last('setSector'));
+});
+
 test('free flight: the toast only when it starts; pixel vision reaches the world and the page', async () => {
   const r = await mount();
   fireEvent.click(screen.getByRole('button', { name: 'Controls and help' }));

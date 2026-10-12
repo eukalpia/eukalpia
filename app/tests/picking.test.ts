@@ -26,3 +26,10 @@ test('a click moves at most 5 px between press and release; more is a drag', () 
   expect(isClick({ x: 10, y: 10 }, { x: 13, y: 14 })).toBe(true);
   expect(isClick({ x: 10, y: 10 }, { x: 16, y: 10 })).toBe(false);
 });
+
+test('a reach limit ignores what lies beyond it (F inspects within 33 m)', () => {
+  const items: Pickable[] = [{ box: box(0, -60, 50), target: { kind: 'district', id: 1 }, label: 'far' }];
+  const ray = new Ray(new Vector3(0, 20, 0), new Vector3(0, 0, -1));
+  expect(pickNearest(ray, items, 33)).toBeNull();
+  expect(pickNearest(ray, items, 80)?.label).toBe('far');
+});

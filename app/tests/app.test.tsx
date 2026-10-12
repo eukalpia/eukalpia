@@ -33,7 +33,7 @@ test('a Day/Night click while the world loads is applied once it is ready', asyn
   expect(screen.getByRole('button', { name: 'Switch to daylight' })).toBeTruthy();
 });
 
-test('while walking near the LMS lift, the hint names the L action', async () => {
+test('while walking near the LMS lift, the lift button says what L would do', async () => {
   vi.useFakeTimers();
   render(<App quality="high" initialTime="day" reducedMotion webgl2 />);
   await act(async () => {
@@ -50,7 +50,9 @@ test('while walking near the LMS lift, the hint names the L action', async () =>
   await act(async () => {
     vi.advanceTimersByTime(500);
   });
-  expect(screen.getByText('L · Ride to LMS roof')).toBeTruthy();
+  const lift = screen.getByRole('button', { name: 'Ride to LMS roof' });
+  expect(lift.textContent).toContain('To roof');
+  expect(lift).toHaveProperty('disabled', false);
   vi.useRealTimers();
 });
 

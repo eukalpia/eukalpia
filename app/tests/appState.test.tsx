@@ -29,7 +29,7 @@ function recordingWorld() {
     setMode: rec('setMode', true),
     onModeChange() {},
     walkState: () => 'ready',
-    liftStatus: () => null,
+    liftStatus: () => ({ label: 'Ride to LMS roof', available: true }),
     setSector: rec('setSector', true),
     focusDistrict: rec('focusDistrict'),
     setPaused: rec('setPaused'),
@@ -41,6 +41,15 @@ function recordingWorld() {
     onHover: (fn: typeof hoverListener) => (hoverListener = fn),
     onPick: (fn: typeof pickListener) => (pickListener = fn),
     followVehicle: rec('followVehicle'),
+    walkControls: {
+      setStick: rec('setStick'),
+      setRun: rec('setRun'),
+      jump: rec('jump'),
+      toggleView: rec('toggleView'),
+      firstPerson: () => false,
+      inspect: rec('inspect'),
+      lift: rec('lift'),
+    },
     photo: {
       enter: async () => ({ ok: true }),
       exit() {},
@@ -175,4 +184,23 @@ test('clicking a building opens its card and flies there; clicking the air taxi 
   expect(r.called('focusDistrict')).toEqual([['focusDistrict', lms.id]]);
   await act(async () => r.pick({ kind: 'vehicle' }));
   expect(r.called('followVehicle')).toHaveLength(1);
+});
+
+test("walking shows v1's walk panel in place of the dock; its buttons drive UR-01 and Exit returns to orbit", async () => {
+  vi.useFakeTimers();
+  const r = await mount();
+  expect(screen.queryByRole('region', { name: 'Character controls' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Walk through the city' }));
+  await act(async () => vi.advanceTimersByTime(300));
+  expect(screen.getByRole('region', { name: 'Character controls' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Ride to LMS roof' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to first person' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Switch to running' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Jump' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Inspect what you are looking at' }));
+  expect(['lift', 'toggleView', 'jump', 'inspect'].map(n => r.called(n).length)).toEqual([1, 1, 1, 1]);
+  expect(r.called('setRun').at(-1)).toEqual(['setRun', true]);
+  fireEvent.click(screen.getByRole('button', { name: 'Leave walking mode' }));
+  expect(r.called('setSector').at(-1)).toEqual(['setSector', 'overview']);
+  vi.useRealTimers();
 });

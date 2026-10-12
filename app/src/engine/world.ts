@@ -1,6 +1,7 @@
 import {
   AgXToneMapping,
   Clock,
+  MeshStandardMaterial,
   NoToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
@@ -15,7 +16,8 @@ import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../w
 import { DEFAULT_SEED, createLayout } from '../world/layout';
 import { createTerrain } from '../world/terrain';
 import { createClouds } from './atmosphere/clouds';
-import { createOrbit } from './camera/orbit';
+import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
+import { loadCharacter, measureBindPose } from '../character/model';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
 import { createSky } from './lighting/sky';
@@ -82,6 +84,20 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
 
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
+
+  // UR-01 waits on the sidewalk. A failed download only disables walking; the city keeps running.
+  loadCharacter(opts.quality === 'low' ? 'mobile' : 'desktop', import.meta.env.BASE_URL)
+    .then(model => {
+      if (disposed) return model.dispose();
+      model.root.position.set(CHARACTER_SPAWN.x, layout.islands[0].topY, CHARACTER_SPAWN.z);
+      for (const m of model.skinned) sun.setupMaterial(m.material as MeshStandardMaterial);
+      scene.add(model.root);
+      character = model;
+      debug.character = () => measureBindPose(model);
+    })
+    .catch(error => console.warn(String(error)));
+  let character: Awaited<ReturnType<typeof loadCharacter>> | null = null;
+  let disposed = false;
 
   // At night the eight lamps nearest to the camera are real lights; the rest glow via the baked ground mask.
   const streetLights = Array.from({ length: 8 }, () => {
@@ -201,6 +217,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     resize,
     setTime,
     dispose() {
+      disposed = true;
+      character?.dispose();
       document.removeEventListener('visibilitychange', syncLoop);
       renderer.setAnimationLoop(null);
       orbit.dispose();

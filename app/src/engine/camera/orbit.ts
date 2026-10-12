@@ -12,6 +12,9 @@ export const ORBIT_LIMITS = {
   target: [0, 60, 0] as Vec3,
 };
 
+/** A sidewalk spot on the east side of the ring avenue. */
+export const CHARACTER_SPAWN = { x: 69, z: 150 };
+
 export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = {
   'orbit-day': { position: [720, 420, 780], target: [0, 40, 0] },
   'orbit-night': { position: [720, 420, 780], target: [0, 40, 0] },
@@ -20,6 +23,9 @@ export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = 
   // Eye height on the east sidewalk of the ring avenue, looking north-west towards the monolith.
   'street-day': { position: [69, 1.7, 160], target: [48, 34, 30] },
   'street-night': { position: [69, 1.7, 160], target: [48, 34, 30] },
+  // UR-01 stands at CHARACTER_SPAWN facing +z; front and left-side portraits from 3.6 m.
+  'character-front': { position: [69, 1.15, 153.6], target: [69, 0.95, 150] },
+  'character-side': { position: [72.6, 1.15, 150], target: [69, 0.95, 150] },
 };
 
 export interface TourPose {

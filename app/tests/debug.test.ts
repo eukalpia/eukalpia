@@ -20,6 +20,8 @@ test('street shots are recognised', () => {
   expect(parseShotParams('?shot=street-night').shot).toBe('street-night');
   expect(parseShotParams('?shot=street-day').shot).toBe('street-day');
   expect(parseShotParams('?shot=street-corner').shot).toBe('street-corner');
+  expect(parseShotParams('?shot=lms-lift').shot).toBe('lms-lift');
+  expect(parseShotParams('?shot=lms-roof').shot).toBe('lms-roof');
 });
 
 test('character shots are recognised', () => {

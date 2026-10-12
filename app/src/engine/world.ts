@@ -23,6 +23,7 @@ import { loadCharacter, measureBindPose } from '../character/model';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
+import { createLift, liftColliders, planLift, type LiftStatus } from '../world/lift';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
 import { createSky } from './lighting/sky';
@@ -50,6 +51,8 @@ export interface World {
   /** Switches between the orbit overview and walking with UR-01; false if walking is not available yet. */
   setMode(mode: WorldMode): boolean;
   mode(): WorldMode;
+  /** The LMS lift as seen from where UR-01 stands; null while not walking. */
+  liftStatus(): LiftStatus | null;
   resize(width: number, height: number): void;
   dispose(): void;
   renderer: WebGLRenderer;
@@ -106,6 +109,22 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   // Signals and the cars that obey them share one clock, which stops while the tab is hidden.
   let streetClock = 0;
 
+  // The panoramic lift up the LMS tower, and the solid city UR-01 walks in.
+  const lmsId = DISTRICTS.find(d => d.name === 'lms.turin.uz')!.id;
+  const liftPlan = planLift(
+    city.specs.find(s => s.districtId === lmsId)!,
+    layout,
+  );
+  const collision = buildCollisionWorld(
+    layout,
+    city.specs,
+    terrain.furniture,
+    clutterPlan.signals,
+    liftColliders(liftPlan),
+  );
+  const lift = createLift(liftPlan, collision, { sun });
+  scene.add(lift.group);
+
   // UR-01 waits on the sidewalk. A failed download only disables walking; the city keeps running.
   loadCharacter(opts.quality === 'low' ? 'mobile' : 'desktop', import.meta.env.BASE_URL)
     .then(model => {
@@ -115,7 +134,6 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       scene.add(model.root);
       character = model;
       debug.character = () => measureBindPose(model);
-      const collision = buildCollisionWorld(layout, city.specs, terrain.furniture, clutterPlan.signals);
       walk = createWalk({
         camera,
         canvas,
@@ -124,6 +142,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
         spawn: new Vector3(CHARACTER_SPAWN.x, layout.islands[0].topY, CHARACTER_SPAWN.z),
       });
       walk.onAction(a => a === 'exit' && setMode('orbit'));
+      walk.onAction(a => a === 'transit' && lift.press(walk!.controller.position));
       if (opts.sector === 'street' && !opts.shot) setMode('walk');
     })
     .catch(error => console.warn(String(error)));
@@ -201,6 +220,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     terrain.setNight(time === 'night');
     traffic.setNight(time === 'night');
     clutter.setNight(time === 'night');
+    lift.setNight(time === 'night');
     sun.update();
     city.facade.envMap = null;
     reflection?.dispose();
@@ -226,6 +246,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     timer.update(timestamp);
     const rawDt = timer.getDelta();
     const dt = Math.min(rawDt, 0.1);
+    lift.update(dt, walk?.active ? walk.controller : undefined);
     if (walk?.active) walk.update(dt);
     else {
       orbit.update(dt);
@@ -281,6 +302,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     setTime,
     setMode,
     mode: () => mode,
+    liftStatus: () => (walk?.active ? lift.status(walk.controller.position) : null),
     dispose() {
       disposed = true;
       walk?.dispose();
@@ -296,6 +318,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       terrain.dispose();
       traffic.dispose();
       clutter.dispose();
+      lift.dispose();
       reflection?.dispose();
       environment.dispose();
       renderer.dispose();

@@ -59,6 +59,17 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
 
   useEffect(() => worldRef.current?.setTime(time), [time]);
 
+  // Temporary lift hint until the full interface lands: what the L key would do right now.
+  const [liftHint, setLiftHint] = useState<string | null>(null);
+  useEffect(() => {
+    if (!walking) return setLiftHint(null);
+    const id = window.setInterval(() => {
+      const s = worldRef.current?.liftStatus?.();
+      setLiftHint(!s || s.label === 'LMS lift · locating…' ? null : s.available ? `L · ${s.label}` : s.label);
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [walking]);
+
   if (postcard) return <Postcard />;
   return (
     <main className="world-shell">
@@ -80,6 +91,11 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       >
         {walking ? 'ORBIT' : 'WALK'}
       </button>
+      {liftHint && (
+        <p className="world-hint" role="status">
+          {liftHint}
+        </p>
+      )}
     </main>
   );
 }

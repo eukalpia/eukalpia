@@ -19,10 +19,11 @@ import { createTerrain } from '../world/terrain';
 import { createTraffic } from '../world/street/traffic';
 import { planClutter } from '../world/street/clutter';
 import { createClutterMeshes } from '../world/street/clutterMeshes';
-import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
+import { CHARACTER_SPAWN, OVERVIEW_POSE, UNDERWORLD_POSE, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
 import { upgradeCharacterMaterials } from '../character/materials';
 import { createPresence, type Presence } from '../character/presence';
+import { focusPose, landmarkFrames } from '../world/landmarks';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
@@ -63,6 +64,19 @@ export interface World {
   walkState(): 'loading' | 'ready' | 'failed';
   /** The LMS lift as seen from where UR-01 stands; null while not walking. */
   liftStatus(): LiftStatus | null;
+  /** The overview, floor −1 (under the main island), or street level, which is walking. */
+  setSector(sector: Sector): boolean;
+  /** Flies to a district's landmark. */
+  focusDistrict(id: number): void;
+  /** Freezes the city's motion (clouds, sky, traffic, the tour); walking input waits too. */
+  setPaused(paused: boolean): void;
+  setTour(on: boolean): void;
+  /** Told when the tour starts or ends, including when a drag ends it. */
+  onTourChange(fn: (on: boolean) => void): void;
+  setFly(on: boolean): void;
+  setFlyInput(input: { forward: number; right: number; up: number }): void;
+  /** v1's pixel vision: a coarse, crisp render (pixel ratio 0.62). */
+  setPixelated(on: boolean): void;
   photo: {
     enter(): Promise<PhotoResult>;
     exit(): void;
@@ -116,6 +130,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const layout = createLayout(DEFAULT_SEED, DISTRICTS);
   const city = createCityMeshes(layout, DISTRICTS, { tier: opts.quality, sun, textures });
   scene.add(city.group);
+  const landmarks = landmarkFrames(city.specs);
 
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
@@ -188,6 +203,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     if (next === mode) return true;
     mode = next;
     if (next === 'walk') {
+      orbit.stopTour();
       orbit.controls.enabled = false;
       camera.near = 0.15;
       camera.far = 6000;
@@ -325,20 +341,22 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     timer.update(timestamp);
     const rawDt = timer.getDelta();
     const dt = Math.min(rawDt, 0.1);
-    const street = photoActive ? 0 : dt;
+    const street = photoActive || paused ? 0 : dt;
+    if (!paused) sceneTime += dt;
     // The lift carries UR-01 even outside walk mode, so leaving mid-ride never strands them in the shaft.
     lift.update(street, walk?.controller);
     if (photoActive) {
       if (!walk?.active) orbit.update(dt);
-    } else if (walk?.active) walk.update(dt);
-    else {
+    } else if (walk?.active) {
+      if (!paused) walk.update(dt);
+    } else {
       orbit.update(dt);
       walk?.idle(dt, flags.has('walkcycle') ? 1.6 : 0);
     }
-    sky.update(timer.getElapsed());
-    city.update(dt);
-    post.clouds.update(timer.getElapsed());
-    terrain.update(timer.getElapsed());
+    sky.update(sceneTime);
+    city.update(paused ? 0 : dt);
+    post.clouds.update(sceneTime);
+    terrain.update(sceneTime);
     // The traced scene is a still: traffic and signals pause with it.
     streetClock += street;
     traffic.update(street, streetClock, camera.position);
@@ -363,7 +381,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     debug.frame += 1;
     if (debug.frame >= 2) debug.ready = true;
     // Frame time is the real interval between frames, so GPU-bound slowness is included.
-    const nextDpr = adaptive?.update(rawDt * 1000, dt);
+    const nextDpr = pixelated ? null : adaptive?.update(rawDt * 1000, dt);
     if (nextDpr) {
       renderer.setPixelRatio(nextDpr);
       resize(size.width, size.height);
@@ -375,6 +393,10 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   document.addEventListener('visibilitychange', syncLoop);
   syncLoop();
 
+  let paused = false;
+  let pixelated = false;
+  // The city's own clock: it stands still while paused.
+  let sceneTime = 0;
   const size = { width: 1, height: 1 };
   function resize(width: number, height: number) {
     size.width = width;
@@ -397,6 +419,37 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     mode: () => mode,
     onModeChange: fn => void modeListeners.push(fn),
     walkState: () => walkState,
+    setSector(sector) {
+      if (sector === 'street') return setMode('walk');
+      if (mode === 'walk') setMode('orbit');
+      const pose = sector === 'underworld' ? UNDERWORLD_POSE : OVERVIEW_POSE;
+      orbit.flyTo(pose.position, pose.target);
+      return true;
+    },
+    focusDistrict(id) {
+      const frame = landmarks.get(id);
+      if (!frame) return;
+      if (mode === 'walk') setMode('orbit');
+      const pose = focusPose(frame);
+      orbit.flyTo(pose.position, pose.target);
+    },
+    setPaused(p) {
+      paused = p;
+      orbit.setPaused(p);
+      if (p) walk?.input.clear();
+    },
+    setTour(on) {
+      if (on) orbit.startTour();
+      else orbit.stopTour();
+    },
+    onTourChange: fn => orbit.onTourChange(fn),
+    setFly: on => orbit.setFly(on),
+    setFlyInput: input => orbit.setFlyInput(input),
+    setPixelated(on) {
+      pixelated = on;
+      renderer.setPixelRatio(on ? 0.62 : Math.min(window.devicePixelRatio || 1, settings.maxDpr));
+      resize(size.width, size.height);
+    },
     liftStatus: () => (walk?.active ? lift.status(walk.controller.position) : null),
     photo: {
       enter: () => photo.enter(),

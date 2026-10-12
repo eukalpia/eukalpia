@@ -414,6 +414,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   });
   const hoverListeners: ((label: string | null) => void)[] = [];
   const pickListeners: ((target: PickTarget) => void)[] = [];
+  debug.pick = target => {
+    for (const fn of pickListeners) fn(target);
+  };
   const raycaster = new Raycaster();
   const ndc = new Vector2();
   let pressedAt: { x: number; y: number } | null = null;

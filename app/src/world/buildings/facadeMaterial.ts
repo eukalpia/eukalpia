@@ -1,4 +1,4 @@
-import { MeshStandardMaterial, type Texture } from 'three';
+import { Color, MeshStandardMaterial, type Texture } from 'three';
 import { TIER_SETTINGS, type QualityTier } from '../../engine/quality';
 
 export interface TextureSet {
@@ -59,6 +59,8 @@ export type FacadeMaterial = MeshStandardMaterial & {
     uNight: { value: number };
     uLitRatio: { value: number };
     uTime: { value: number };
+    /** Multiplies the lamps behind every window (override turns them red). */
+    uWindowTint: { value: Color };
   };
 };
 
@@ -85,6 +87,7 @@ const fragmentPars = /* glsl */ `
 #define LIT_ROOM_MEAN ${LIT_ROOM_MEAN.toFixed(3)}
 #define NIGHT_ROOM_SCALE ${NIGHT_ROOM_SCALE.toFixed(3)}
 uniform float uNight;
+uniform vec3 uWindowTint;
 uniform float uLitRatio;
 uniform float uTime;
 uniform sampler2D tConcreteDiff;
@@ -156,9 +159,10 @@ float fRecess(float style) {
 }
 
 vec3 fLightColor(float h) {
-  return h < ${ROOM_LIGHTS[0].share.toFixed(3)} ? ${glslVec(ROOM_LIGHTS[0].color)}
+  vec3 lamp = h < ${ROOM_LIGHTS[0].share.toFixed(3)} ? ${glslVec(ROOM_LIGHTS[0].color)}
     : h < ${(ROOM_LIGHTS[0].share + ROOM_LIGHTS[1].share).toFixed(3)} ? ${glslVec(ROOM_LIGHTS[1].color)}
     : ${glslVec(ROOM_LIGHTS[2].color)};
+  return lamp * uWindowTint;
 }
 
 /*facade:interior*/
@@ -406,7 +410,12 @@ function inject(source: string, include: string, replacement: string): string {
 export function createFacadeMaterial(opts: { tier: QualityTier; textures: FacadeTextures }): FacadeMaterial {
   const material = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0 }) as FacadeMaterial;
   material.name = 'Facade';
-  material.uniforms = { uNight: { value: 0 }, uLitRatio: { value: 0.04 }, uTime: { value: 0 } };
+  material.uniforms = {
+    uNight: { value: 0 },
+    uLitRatio: { value: 0.04 },
+    uTime: { value: 0 },
+    uWindowTint: { value: new Color(1, 1, 1) },
+  };
   const furniture = TIER_SETTINGS[opts.tier].interiorFurniture;
   const t = opts.textures;
 

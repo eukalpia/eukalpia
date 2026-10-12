@@ -39,6 +39,11 @@ export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = 
   // Close looks at UR-01's materials: head and chest from 2.2 m, and a three-quarter view.
   'character-closeup': { position: [69, 1.55, 152.2], target: [69, 1.35, 150] },
   'character-three-quarter': { position: [71.2, 1.45, 152.4], target: [69, 1.0, 150] },
+  // The hidden objects up close: the cat on the Admissions roof, the beacon, the elevator, the ghost window.
+  'secret-cat': { position: [-15, 148.4, 119.5], target: [-18.6, 147.6, 114] },
+  'secret-beacon': { position: [190, 5, 124], target: [178.7, 5, 109.8] },
+  'secret-elevator': { position: [38, 3.5, 12], target: [26, 2, 0] },
+  'secret-ghost-night': { position: [-84, 64, -8], target: [-87.8, 63, 4.7] },
 };
 
 /** Where the overview starts and where Orbit returns: the default orbit around the city. */

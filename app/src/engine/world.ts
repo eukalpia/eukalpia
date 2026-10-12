@@ -29,6 +29,7 @@ import { createPresence, type Presence } from '../character/presence';
 import { focusPose, landmarkFrames } from '../world/landmarks';
 import { isClick, pickNearest, type Pickable, type PickTarget } from '../world/picking';
 import { createSigns } from '../world/signs';
+import { createSecrets, planSecrets } from '../world/secrets';
 import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
@@ -88,6 +89,14 @@ export interface World {
   onPick(fn: (target: PickTarget) => void): void;
   /** Chases UR-07 until a drag or a navigation lets go. */
   followVehicle(): void;
+  /** OVERRIDE ACCEPTED: a red sun, red windows and a red beacon cross for the rest of the visit. */
+  setOverride(on: boolean): void;
+  /** The seven knocks: labels and lit windows go dark for a while. */
+  blackout(ms: number): void;
+  /** All six found: the monolith's cross turns mint. */
+  setCompleted(on: boolean): void;
+  /** After its discovery the cat walks its roof. */
+  setCatFound(found: boolean): void;
   photo: {
     enter(): Promise<PhotoResult>;
     exit(): void;
@@ -145,6 +154,13 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const signs = createSigns(landmarks, DISTRICTS);
   scene.add(signs.group);
   post.overlay.add(signs.labels);
+  const secrets = createSecrets(planSecrets(layout, city.specs), {
+    setup: m => sun.setupMaterial(m as MeshStandardMaterial),
+  });
+  scene.add(secrets.group);
+  let override = false;
+  let blackoutUntil = 0;
+  let blackoutTimer = 0;
   // Everything a click can land on; the hidden objects join later.
   const pickables: Pickable[] = [];
   for (const spec of city.specs) {
@@ -291,7 +307,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   let currentTime = opts.time;
   function setTime(time: TimeOfDay) {
     currentTime = time;
-    const preset = PRESETS[time];
+    // Override paints the sun red, day or night.
+    const preset = override ? { ...PRESETS[time], sunColor: 0xff3c25 } : PRESETS[time];
     sky.setPreset(preset, time);
     sun.setPreset(preset);
     scene.environment = environment.update(sky.mesh);
@@ -299,7 +316,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     sunDirection(preset, sunDir);
     post.clouds.setPreset(preset, sunDir, time === 'night');
     post.setPreset(flags.has('nofog') ? { ...preset, fogDensity: 0 } : preset, sunDir);
-    city.setNight(time === 'night', preset.windowLitRatio);
+    city.setNight(time === 'night', performance.now() < blackoutUntil ? 0 : preset.windowLitRatio);
+    secrets.setNight(time === 'night');
     terrain.setNight(time === 'night');
     traffic.setNight(time === 'night');
     clutter.setNight(time === 'night');
@@ -390,7 +408,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
-    return pickNearest(raycaster.ray, pickables);
+    return pickNearest(raycaster.ray, [...pickables, ...secrets.pickables()]);
   };
   const setHover = (label: string | null) => {
     if (label === hovered) return;
@@ -446,6 +464,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     presence?.update(camera, currentTime === 'night');
     camera.updateMatrixWorld();
     signs.update(camera);
+    secrets.update(sceneTime);
     sun.update();
     photo.frame();
     renderer.info.reset();
@@ -530,6 +549,25 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     onHover: fn => void hoverListeners.push(fn),
     onPick: fn => void pickListeners.push(fn),
     followVehicle: () => orbit.follow(() => traffic.heroPod(heroAt)),
+    setOverride(on) {
+      override = on;
+      city.facade.uniforms.uWindowTint.value.setRGB(1, on ? 0.33 : 1, on ? 0.23 : 1);
+      secrets.setOverride(on);
+      setTime(currentTime);
+    },
+    blackout(ms) {
+      blackoutUntil = performance.now() + ms;
+      signs.setVisible(false);
+      setTime(currentTime);
+      window.clearTimeout(blackoutTimer);
+      blackoutTimer = window.setTimeout(() => {
+        blackoutUntil = 0;
+        signs.setVisible(true);
+        setTime(currentTime);
+      }, ms);
+    },
+    setCompleted: on => secrets.setCompleted(on),
+    setCatFound: found => secrets.setCatFound(found),
     setFly: on => orbit.setFly(on),
     setFlyInput: input => orbit.setFlyInput(input),
     setPixelated(on) {
@@ -554,6 +592,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       signs.dispose();
+      secrets.dispose();
+      window.clearTimeout(blackoutTimer);
       walk?.dispose();
       character?.dispose();
       presence?.dispose();

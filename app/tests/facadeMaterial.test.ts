@@ -79,3 +79,12 @@ test('night rooms vary like a real facade: most dim and warm, a few bright offic
   m.onBeforeCompile(shader, null as never);
   expect(shader.fragmentShader).toContain('/*facade:room-brightness*/');
 });
+
+test('a window tint colours the lamps behind every window (override turns them red)', () => {
+  const m = createFacadeMaterial({ tier: 'high', textures: fakeTextures() });
+  const shader = fakeShader();
+  m.onBeforeCompile(shader, null as never);
+  expect(m.uniforms.uWindowTint.value.toArray()).toEqual([1, 1, 1]);
+  expect(shader.uniforms.uWindowTint).toBe(m.uniforms.uWindowTint);
+  expect(shader.fragmentShader).toMatch(/fLightColor[\s\S]*uWindowTint/);
+});

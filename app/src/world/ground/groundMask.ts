@@ -18,7 +18,7 @@ interface Rect {
   z1: number;
 }
 
-function streetRect(s: Street): Rect & { vertical: boolean; center: number } {
+export function streetRect(s: Street): Rect & { vertical: boolean; center: number } {
   const vertical = Math.abs(s.ax - s.bx) < 1e-6;
   const half = s.width / 2;
   return vertical

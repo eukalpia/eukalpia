@@ -25,6 +25,8 @@ const failures = [];
 
 async function waitForServer() {
   for (let i = 0; i < 100; i++) {
+    // A preview server that exits at once means the port is taken by another server.
+    if (serverExited) throw new Error(`vite preview exited; is port ${port} already in use?`);
     try {
       if ((await fetch(base)).ok) return;
     } catch {}
@@ -33,10 +35,14 @@ async function waitForServer() {
   throw new Error('vite preview did not start');
 }
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], {
+// Run vite directly, not through npx, so that killing `server` really stops the preview server.
+const viteBin = join(root, 'node_modules', 'vite', 'bin', 'vite.js');
+const server = spawn(process.execPath, [viteBin, 'preview', '--port', String(port), '--strictPort'], {
   cwd: root,
   stdio: 'ignore',
 });
+let serverExited = false;
+server.on('exit', () => (serverExited = true));
 const browserArgs = noWebgl
   ? ['--disable-webgl', '--disable-3d-apis']
   : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];

@@ -17,6 +17,9 @@ export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = 
   'orbit-night': { position: [720, 420, 780], target: [0, 40, 0] },
   underside: { position: [520, -380, 620], target: [0, -120, 0] },
   skyline: { position: [260, 70, 340], target: [0, 120, 0] },
+  // Eye height on the east sidewalk of the ring avenue, looking north-west towards the monolith.
+  'street-day': { position: [69, 1.7, 160], target: [48, 34, 30] },
+  'street-night': { position: [69, 1.7, 160], target: [48, 34, 30] },
 };
 
 export interface TourPose {

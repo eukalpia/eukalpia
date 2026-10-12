@@ -121,6 +121,21 @@ export interface DebugHandle {
   };
   /** Delivers a click on this target to the interface, as a real click in the city would. */
   pick?: (target: PickTarget) => void;
+  /**
+   * Frame-by-frame capture: while held, the loop draws only requested frames, each advancing the city by
+   * exactly `dt` however long it takes to render, and the district signs are hidden.
+   */
+  hold?: (on: boolean) => void;
+  capture?: (o: CaptureRequest) => Promise<string>;
+}
+
+export interface CaptureRequest {
+  /** Seconds of city time this frame advances. */
+  dt: number;
+  position: [number, number, number];
+  target: [number, number, number];
+  type: 'image/webp' | 'image/png' | 'image/jpeg';
+  quality?: number;
 }
 
 declare global {

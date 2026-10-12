@@ -33,6 +33,24 @@ test('a shot preset freezes the camera exactly', () => {
   expect(camera.position.toArray()).toEqual(SHOT_PRESETS.underside.position);
 });
 
+test('jumpTo holds the camera exactly at a pose, ending the tour and any flight (frame-by-frame capture)', () => {
+  const camera = new PerspectiveCamera();
+  const o = createOrbit(camera, fakeDom(), { reducedMotion: false });
+  const tour: boolean[] = [];
+  o.onTourChange(on => tour.push(on));
+  o.flyTo([300, 120, 300], [0, 40, 0]);
+  o.startTour();
+  o.flyTo([300, 120, 300], [0, 40, 0]);
+  o.jumpTo([640, 260, -420], [10, 60, 5]);
+  for (let i = 0; i < 20; i++) o.update(0.1);
+  expect(o.tourActive).toBe(false);
+  expect(tour.at(-1)).toBe(false);
+  expect(camera.position.toArray()).toEqual([640, 260, -420]);
+  expect(o.controls.target.toArray()).toEqual([10, 60, 5]);
+  const ahead = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  expect(ahead.angleTo(new Vector3(10, 60, 5).sub(camera.position))).toBeLessThan(1e-6);
+});
+
 test('the tour can be stopped from code (photo mode needs a still camera)', () => {
   const dom = fakeDom();
   const camera = new PerspectiveCamera();

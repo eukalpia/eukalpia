@@ -1,5 +1,6 @@
 import { DISTRICTS } from '../src/content/districts';
-import { buildBuildingGeometry, buildCity } from '../src/world/buildings/geometry';
+import { CHUNK_SIZE, buildBuildingGeometry, buildCity } from '../src/world/buildings/geometry';
+import { TIER_SETTINGS } from '../src/engine/quality';
 import { planBuilding } from '../src/world/buildings/massing';
 import { STYLES } from '../src/world/buildings/styles';
 import { DEFAULT_SEED, createLayout } from '../src/world/layout';
@@ -106,4 +107,16 @@ test('curtain walls carry no sub-pixel fin geometry', () => {
   const { trims } = buildBuildingGeometry(spec, mulberry32(10));
   // Per tier: a cornice ring (4 closed boxes, 12 triangles each) and a parapet ring (4 open boxes, 10 each).
   expect(trims.index!.count / 3).toBe(spec.tiers.length * (4 * 12 + 4 * 10));
+});
+
+test('an unbounded chunk size merges each island into one chunk', () => {
+  const merged = buildCity(layout, DISTRICTS, { chunkSize: Infinity });
+  expect(merged.chunks).toHaveLength(layout.islands.length);
+  const count = (c: typeof merged) => c.chunks.reduce((n, k) => n + (k.walls.index?.count ?? 0), 0);
+  expect(count(merged)).toBe(count(city));
+});
+
+test('low tier merges buildings per island', () => {
+  expect(TIER_SETTINGS.low.buildingChunk).toBe(Infinity);
+  expect(TIER_SETTINGS.high.buildingChunk).toBe(CHUNK_SIZE);
 });

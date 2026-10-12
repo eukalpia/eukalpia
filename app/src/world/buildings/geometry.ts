@@ -366,7 +366,13 @@ export function planLot(layout: CityLayout, lot: Lot, districts: readonly Distri
   return planBuilding(lot, island.topY, rng);
 }
 
-export function buildCity(layout: CityLayout, districts: readonly District[]): CityBuildings {
+/** Buildings are merged into square chunks of `chunkSize` metres (Infinity: one chunk per island). */
+export function buildCity(
+  layout: CityLayout,
+  districts: readonly District[],
+  opts: { chunkSize?: number } = {},
+): CityBuildings {
+  const size = opts.chunkSize ?? CHUNK_SIZE;
   const specs: BuildingSpec[] = [];
   const props: PropInstance[] = [];
   const chunks = new Map<string, BuildingBuilders>();
@@ -374,7 +380,8 @@ export function buildCity(layout: CityLayout, districts: readonly District[]): C
     if (lot.role === 'park') continue;
     const spec = planLot(layout, lot, districts);
     specs.push(spec);
-    const key = `${lot.islandId}:${Math.floor(lot.x / CHUNK_SIZE)}:${Math.floor(lot.z / CHUNK_SIZE)}`;
+    const cell = (v: number) => (Number.isFinite(size) ? Math.floor(v / size) : 0);
+    const key = `${lot.islandId}:${cell(lot.x)}:${cell(lot.z)}`;
     let builders = chunks.get(key);
     if (!builders) {
       builders = { walls: new MeshBuilder(), trims: new MeshBuilder(), roofs: new MeshBuilder(), props };

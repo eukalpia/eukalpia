@@ -29,6 +29,8 @@ export interface TierSettings {
   shadowCasters: ReadonlySet<CasterKind>;
   /** Leaf cards per street tree crown. */
   leafCards: number;
+  /** Building chunk size in metres; Infinity merges each island into one mesh per material (fewer draw calls). */
+  buildingChunk: number;
 }
 
 export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
@@ -41,6 +43,7 @@ export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
     maxDpr: 2,
     shadowCasters: ALL_CASTERS,
     leafCards: 130,
+    buildingChunk: 130,
   },
   medium: {
     csmCascades: 3,
@@ -51,6 +54,7 @@ export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
     maxDpr: 1.5,
     shadowCasters: ALL_CASTERS,
     leafCards: 130,
+    buildingChunk: 130,
   },
   low: {
     csmCascades: 2,
@@ -61,6 +65,7 @@ export const TIER_SETTINGS: Record<QualityTier, TierSettings> = {
     maxDpr: 1.5,
     shadowCasters: new Set(['building', 'bridge']),
     leafCards: 56,
+    buildingChunk: Infinity,
   },
 };
 

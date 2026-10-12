@@ -20,7 +20,7 @@ import {
   type WebGLRenderTarget,
 } from 'three';
 import type { District } from '../content/districts';
-import type { QualityTier } from '../engine/quality';
+import { TIER_SETTINGS, type QualityTier } from '../engine/quality';
 import type { SunRig } from '../engine/lighting/sun';
 import { buildCity, MeshBuilder, type PropInstance } from './buildings/geometry';
 import type { BuildingSpec } from './buildings/massing';
@@ -146,7 +146,7 @@ export function createCityMeshes(
 ): CityMeshes {
   const group = new Group();
   group.name = 'City';
-  const city = buildCity(layout, districts);
+  const city = buildCity(layout, districts, { chunkSize: TIER_SETTINGS[ctx.tier].buildingChunk });
   const facade = createFacadeMaterial({ tier: ctx.tier, textures: ctx.textures });
   const trim = createTrimMaterial(ctx.textures, false);
   const roof = createTrimMaterial(ctx.textures, true);

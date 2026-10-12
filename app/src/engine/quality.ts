@@ -100,8 +100,11 @@ export function readDeviceInfo(env: BrowserEnvironment): DeviceInfo {
   };
 }
 
+/** v1 switched to its phone layout and lighter scene below 900 px; this is about a 900 × 650 screen. */
+const PHONE_SCREEN_AREA = 6e5;
+
 export function detectTier(info: DeviceInfo): QualityTier {
-  if (info.mobile) return 'low';
+  if (info.mobile || info.screenArea < PHONE_SCREEN_AREA) return 'low';
   if (INTEGRATED_GPU.test(info.renderer) || BASE_APPLE_SILICON.test(info.renderer) || info.cores < 6) return 'medium';
   return 'high';
 }

@@ -164,3 +164,8 @@ test('on low only buildings and bridges cast shadows; leaf crowns are lighter', 
     expect(TIER_SETTINGS.high.shadowCasters.has(kind)).toBe(true);
   expect(TIER_SETTINGS.low.leafCards).toBeLessThan(TIER_SETTINGS.high.leafCards);
 });
+
+test('a small screen gets the phone tier and its lighter UR-01, whatever the device claims (v1: 900 px)', () =>
+  expect(detectTier({ mobile: false, cores: 12, renderer: 'ANGLE (NVIDIA, RTX 3060)', screenArea: 390 * 844 })).toBe(
+    'low',
+  ));

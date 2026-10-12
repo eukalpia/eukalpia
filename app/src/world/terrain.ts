@@ -12,7 +12,7 @@ import {
   type Material,
 } from 'three';
 import type { SunRig } from '../engine/lighting/sun';
-import type { QualityTier } from '../engine/quality';
+import { TIER_SETTINGS, type QualityTier } from '../engine/quality';
 import type { TextureSet } from './buildings/facadeMaterial';
 import { createGroundMaterial, type GroundMaterial } from './ground/groundMaterial';
 import { lampPositions, rasterizeGround, rasterizeLampGlow } from './ground/groundMask';
@@ -58,10 +58,12 @@ export function createTerrain(
     materials.push(rockMaterial, rootMaterial);
 
     const rock = new Mesh(buildIslandRock(island, rng), rockMaterial);
-    rock.castShadow = rock.receiveShadow = true;
+    rock.castShadow = TIER_SETTINGS[ctx.tier].shadowCasters.has('rock');
+    rock.receiveShadow = true;
     rock.name = `rock:${island.id}`;
     const roots = new Mesh(buildRoots(island, rng), rootMaterial);
-    roots.castShadow = roots.receiveShadow = true;
+    roots.castShadow = TIER_SETTINGS[ctx.tier].shadowCasters.has('rock');
+    roots.receiveShadow = true;
     roots.name = `roots:${island.id}`;
 
     const size = island.id === 'main' ? (ctx.tier === 'low' ? 1024 : 2048) : 512;

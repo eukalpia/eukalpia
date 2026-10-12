@@ -157,3 +157,10 @@ describe('AdaptiveResolution under frame-rate caps', () => {
     for (let i = 0; i < 120; i++) expect(a.update(16.7, 1 / 60)).toBeNull();
   });
 });
+
+test('on low only buildings and bridges cast shadows; leaf crowns are lighter', () => {
+  expect([...TIER_SETTINGS.low.shadowCasters].sort()).toEqual(['bridge', 'building']);
+  for (const kind of ['building', 'rock', 'bridge', 'tree', 'vehicle', 'street', 'clutter'] as const)
+    expect(TIER_SETTINGS.high.shadowCasters.has(kind)).toBe(true);
+  expect(TIER_SETTINGS.low.leafCards).toBeLessThan(TIER_SETTINGS.high.leafCards);
+});

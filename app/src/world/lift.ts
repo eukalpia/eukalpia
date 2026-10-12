@@ -9,6 +9,7 @@ import {
   type Material,
 } from 'three';
 import type { SunRig } from '../engine/lighting/sun';
+import { TIER_SETTINGS, type QualityTier } from '../engine/quality';
 import type { BuildingSpec } from './buildings/massing';
 import { solidBox, type CollisionWorld, type Mover } from './collision';
 import { streetRect } from './ground/groundMask';
@@ -185,7 +186,7 @@ export interface Lift {
 
 type State = 'idle' | 'closing' | 'travel' | 'opening';
 
-export function createLift(plan: LiftPlan, collision: CollisionWorld, ctx?: { sun: SunRig }): Lift {
+export function createLift(plan: LiftPlan, collision: CollisionWorld, ctx?: { sun: SunRig; tier: QualityTier }): Lift {
   const stopY = (s: LiftStop) => (s === 'street' ? plan.streetY : plan.roofY);
   let y = plan.streetY;
   let speed = 0;
@@ -307,7 +308,8 @@ export function createLift(plan: LiftPlan, collision: CollisionWorld, ctx?: { su
 }
 
 /** Steel frame and glass shaft, the cab, sliding doors, the bridge and its stair. */
-function buildVisuals(plan: LiftPlan, ctx?: { sun: SunRig }) {
+function buildVisuals(plan: LiftPlan, ctx?: { sun: SunRig; tier: QualityTier }) {
+  const casts = ctx ? TIER_SETTINGS[ctx.tier].shadowCasters.has('clutter') : true;
   const h = INNER / 2;
   const top = plan.roofY + CAP;
   const steel = new LocalBuilder();
@@ -392,7 +394,7 @@ function buildVisuals(plan: LiftPlan, ctx?: { sun: SunRig }) {
   const [steelGeo, glassGeo, cabSteelGeo, cabGlassGeo, cabLightGeo, leafGeo] = geometries;
   const mesh = (g: BufferGeometry, m: Material, shadow = true) => {
     const o = new Mesh(g, m);
-    o.castShadow = shadow;
+    o.castShadow = shadow && casts;
     o.receiveShadow = true;
     return o;
   };

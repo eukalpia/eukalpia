@@ -1,4 +1,4 @@
-import { CanvasTexture, Sprite, type SpriteMaterial } from 'three';
+import { CanvasTexture, PerspectiveCamera, Sprite, type SpriteMaterial } from 'three';
 import { DISTRICTS } from '../src/content/districts';
 import { buildCity } from '../src/world/buildings/geometry';
 import { DEFAULT_SEED, createLayout } from '../src/world/layout';
@@ -53,4 +53,20 @@ test('labels that would overlap on screen give way: the focused one first, then 
   expect(placeLabels([rect(0, 0, 5), rect(0.1, 0.02, 0)])).toEqual([false, true]);
   // Behind the camera or off screen: hidden, and they block nothing.
   expect(placeLabels([{ ...rect(0, 0, 0), behind: true }, rect(0.05, 0, 1)])).toEqual([false, true]);
+});
+
+test('from under the islands (floor −1) the signs hide: the rock stands between the camera and every roof', () => {
+  const signs = createSigns(frames, DISTRICTS, { texture: fakeTexture });
+  const sprites = signs.labels.children.filter(o => (o as Sprite).isSprite) as Sprite[];
+  const look = (y: number, targetY: number) => {
+    const camera = new PerspectiveCamera(50, 16 / 9, 1, 5000);
+    camera.position.set(520, y, 620);
+    camera.lookAt(0, targetY, 0);
+    camera.updateMatrixWorld();
+    signs.update(camera);
+    return sprites.filter(s => s.visible).length;
+  };
+  expect(look(420, 40)).toBeGreaterThan(4);
+  expect(look(-380, -120)).toBe(0);
+  signs.dispose();
 });

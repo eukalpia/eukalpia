@@ -6,6 +6,7 @@ import {
   SRGBColorSpace,
   type BufferGeometry,
 } from 'three';
+import { NIGHT_ROOM_SCALE, roomBrightness, roomLight } from '../world/buildings/facadeMaterial';
 import type { StyleId } from '../world/buildings/styles';
 import { STYLES } from '../world/buildings/styles';
 import { rasterizeGround } from '../world/ground/groundMask';
@@ -80,7 +81,7 @@ const toSrgb = (c: number) => {
   const x = Math.max(0, Math.min(1, c));
   return x <= 0.0031308 ? x * 12.92 : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
 };
-const lightColor = (h: number): Vec3 => (h < 0.45 ? [1, 0.72, 0.42] : h < 0.85 ? [1, 0.85, 0.66] : [0.86, 0.92, 1]);
+const lightColor = (h: number): Vec3 => [...roomLight(h)] as Vec3;
 
 function texture(data: Uint8Array, width: number, height: number, srgb: boolean): DataTexture {
   const t = new DataTexture(data, width, height);
@@ -138,7 +139,7 @@ function bakeCells(o: CellOptions, cell: number, rows: number): BakedMaps {
       const h = hash(room, floor, s);
       const lit = h < floorLit;
       const light = lightColor(hash(Math.floor(h * 1e6), 21, 0));
-      const strength = (1.4 + 2.6 * hash(Math.floor(h * 1e6), 25, 0)) / 4;
+      const strength = (NIGHT_ROOM_SCALE * roomBrightness(hash(Math.floor(h * 1e6), 25, 0))) / 4;
       const blinds = hash(Math.floor(h * 1e6), 33, 0) > 0.62 ? 0.3 + 0.6 * hash(Math.floor(h * 1e6), 35, 0) : 2;
       for (let py = 0; py < cell; py++) {
         const fy = (py + 0.5) / cell;

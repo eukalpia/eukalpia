@@ -23,6 +23,7 @@ import {
 import { DenoisePass } from '../phototrace/denoise';
 import { PhotoInputPass } from '../phototrace/photoInputPass';
 import { AtmosphereEffect } from './atmosphere/AtmosphereEffect';
+import { LightShaftsPass } from './atmosphere/lightShafts';
 import { CloudPass } from './atmosphere/clouds';
 import type { DebugFlag } from './debug';
 import type { LightingPreset } from './lighting/timeOfDay';
@@ -77,6 +78,9 @@ export function createPost(
   // Exposure and fog first, so bloom thresholds and tone mapping see exposed radiance.
   const atmosphere = new AtmosphereEffect(camera);
   composer.addPass(new EffectPass(camera, atmosphere));
+  // Shafts after the fog (they are light scattered in it), before bloom and tone mapping.
+  const shafts = new LightShaftsPass(camera, tier);
+  composer.addPass(shafts);
   const bloom = new BloomEffect({
     mipmapBlur: true,
     intensity: 0.9,
@@ -98,6 +102,7 @@ export function createPost(
   );
 
   const fog = new Color();
+  const shaftColor = new Color();
   const sun = new Color();
   return {
     clouds,
@@ -116,6 +121,7 @@ export function createPost(
       composer.setSize(width, height, false);
     },
     setPreset(p, sunDir) {
+      shafts.setSun(sunDir, shaftColor.set(p.sunColor).multiplyScalar(p.sunIntensity * 0.12), p.shafts);
       bloom.luminanceMaterial.threshold = p.bloomThreshold;
       bloom.intensity = flags.has('nobloom') ? 0 : p.bloomIntensity;
       atmosphere.setAtmosphere({

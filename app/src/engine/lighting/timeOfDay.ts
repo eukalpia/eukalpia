@@ -18,6 +18,8 @@ export interface LightingPreset {
   windowLitRatio: number;
   bloomThreshold: number;
   bloomIntensity: number;
+  /** Strength of the light shafts from the sun or moon (0 = none). */
+  shafts: number;
 }
 
 export const PRESETS: Record<TimeOfDay, LightingPreset> = {
@@ -35,6 +37,7 @@ export const PRESETS: Record<TimeOfDay, LightingPreset> = {
     fogDensity: 0.00008,
     fogHeightFalloff: 0.0016,
     windowLitRatio: 0.04,
+    shafts: 0.85,
     bloomThreshold: 2.4,
     bloomIntensity: 0.35,
   },
@@ -51,6 +54,7 @@ export const PRESETS: Record<TimeOfDay, LightingPreset> = {
     fogDensity: 0.00035,
     fogHeightFalloff: 0.0012,
     windowLitRatio: 0.28,
+    shafts: 0.08,
     bloomThreshold: 0.62,
     bloomIntensity: 0.9,
   },

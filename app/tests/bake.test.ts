@@ -91,3 +91,23 @@ test('rock gets box-projected uvs from its dominant normal axis', () => {
   expect([uv[0], uv[1]]).toEqual([0.4, 0.6].map(x => expect.closeTo(x, 6)));
   expect([uv[4], uv[5]]).toEqual([0, -0.2].map(x => expect.closeTo(x, 6)));
 });
+
+test('at night fewer than 5 % of lit windows blow out to a white sheet', () => {
+  // Photo mode shows the atlas at emissiveIntensity 2.5 and the night exposure 1.6; ACES maps 1.6
+  // to ~0.85, so a brighter cell reads as a white sheet next to the street lamps.
+  const fromSrgb = (v: number) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  let lit = 0;
+  let blown = 0;
+  for (let seed = 1; seed <= 8; seed++) {
+    const e = bakeFacade('glass', { night: true, litRatio: 0.28, seed, size: 256 }).upper.emissiveMap!;
+    for (let cy = 0; cy < FACADE_CELLS; cy++)
+      for (let cx = 0; cx < FACADE_CELLS; cx++) {
+        const [r, g, b] = pixel(e, (cx + 0.5) / FACADE_CELLS, (cy + 0.5) / FACADE_CELLS);
+        if (r <= 20) continue;
+        lit++;
+        if (fromSrgb(Math.max(r, g, b) / 255) * 2.5 * 1.6 > 1.6) blown++;
+      }
+  }
+  expect(lit).toBeGreaterThan(100);
+  expect(blown / lit).toBeLessThan(0.05);
+});

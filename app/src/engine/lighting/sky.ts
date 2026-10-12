@@ -3,6 +3,15 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { sunDirection, type LightingPreset, type TimeOfDay } from './timeOfDay';
 
 const SKY_SCALE = 10000;
+/** Below the horizon: how far down the tint reaches (direction y) and its colour relative to the horizon. */
+const BELOW_DEPTH = 0.25;
+export const BELOW_TINT: readonly [number, number, number] = [0.3, 0.38, 0.52];
+
+/** TS mirror of the shader: how much of the deep tint a view direction with this y gets. */
+export function belowHorizon(y: number): number {
+  const t = Math.min(1, Math.max(0, -y / BELOW_DEPTH));
+  return t * t * (3 - 2 * t);
+}
 
 const nightVertex = /* glsl */ `
 varying vec3 vWorldPosition;
@@ -86,6 +95,15 @@ export function createSky(): SkyRig {
   const day = new Sky();
   day.scale.setScalar(SKY_SCALE);
   const dayMaterial = day.material as ShaderMaterial;
+  // three's sky repeats the bright horizon below it; through the gaps in the cloud sea the far
+  // ground reads as a deep blue haze, which gives the orbit view its contrast.
+  dayMaterial.fragmentShader = dayMaterial.fragmentShader.replace(
+    'gl_FragColor = vec4( texColor, 1.0 );',
+    `/*sky:below*/
+    float below = smoothstep( 0.0, ${BELOW_DEPTH.toFixed(3)}, -direction.y );
+    texColor = mix( texColor, texColor * vec3( ${BELOW_TINT.map(v => v.toFixed(3)).join(', ')} ), below );
+    gl_FragColor = vec4( texColor, 1.0 );`,
+  );
   dayMaterial.uniforms.mieCoefficient.value = 0.004;
   dayMaterial.uniforms.mieDirectionalG.value = 0.82;
   dayMaterial.uniforms.cloudCoverage.value = 0.32;

@@ -1,4 +1,11 @@
-import { LIT_ROOM_MEAN, createFacadeMaterial } from '../src/world/buildings/facadeMaterial';
+import {
+  LIT_ROOM_MEAN,
+  NIGHT_ROOM_SCALE,
+  ROOM_BRIGHTNESS_MEAN,
+  ROOM_LIGHTS,
+  createFacadeMaterial,
+  roomBrightness,
+} from '../src/world/buildings/facadeMaterial';
 import { fakeShader, fakeTextures } from './helpers';
 
 test('facade shader injects window grid, interior and night code', () => {
@@ -42,5 +49,33 @@ test('far-away windows glow with the same mean energy as near rooms', () => {
   m.onBeforeCompile(shader, null as never);
   expect(shader.fragmentShader).toContain(`LIT_ROOM_MEAN ${LIT_ROOM_MEAN.toFixed(3)}`);
   expect(shader.fragmentShader).toContain('/*facade:farlit*/');
-  expect(shader.fragmentShader).toContain('LIT_ROOM_MEAN * fFarLit');
+  expect(shader.fragmentShader).toContain('LIT_ROOM_MEAN * NIGHT_ROOM_SCALE * fFarLit');
+});
+
+test('lit rooms are scaled the same near and far, so night windows glow instead of blowing out white', () => {
+  const m = createFacadeMaterial({ tier: 'high', textures: fakeTextures() });
+  const shader = fakeShader();
+  m.onBeforeCompile(shader, null as never);
+  expect(NIGHT_ROOM_SCALE).toBeLessThan(0.7);
+  expect(shader.fragmentShader).toContain(`NIGHT_ROOM_SCALE ${NIGHT_ROOM_SCALE.toFixed(3)}`);
+  expect(shader.fragmentShader).toContain('nightLight * NIGHT_ROOM_SCALE');
+});
+
+test('night rooms vary like a real facade: most dim and warm, a few bright offices', () => {
+  expect(roomBrightness(0)).toBeLessThanOrEqual(0.35);
+  expect(roomBrightness(0.5)).toBeLessThan(1.1);
+  expect(roomBrightness(1)).toBeGreaterThanOrEqual(2.8);
+  // The far-window average is the mean of the near distribution, so the two meet without a band.
+  let sum = 0;
+  for (let i = 0; i < 1000; i++) sum += roomBrightness((i + 0.5) / 1000);
+  expect(sum / 1000).toBeCloseTo(ROOM_BRIGHTNESS_MEAN, 2);
+  // Most lamps are warm; tungsten is clearly orange, not white.
+  const warm = ROOM_LIGHTS.filter(l => l.color[2] < l.color[0] * 0.7);
+  expect(warm.reduce((s, l) => s + l.share, 0)).toBeGreaterThan(0.75);
+  expect(ROOM_LIGHTS[0].color[2]).toBeLessThan(0.4);
+  expect(ROOM_LIGHTS.reduce((s, l) => s + l.share, 0)).toBeCloseTo(1, 6);
+  const m = createFacadeMaterial({ tier: 'high', textures: fakeTextures() });
+  const shader = fakeShader();
+  m.onBeforeCompile(shader, null as never);
+  expect(shader.fragmentShader).toContain('/*facade:room-brightness*/');
 });

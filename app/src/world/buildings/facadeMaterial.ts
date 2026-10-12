@@ -13,12 +13,46 @@ export interface FacadeTextures {
   brick: TextureSet;
 }
 
+/** Lamps behind night windows: tungsten, warm white and cool office light, with how often each occurs. */
+export const ROOM_LIGHTS: readonly { share: number; color: readonly [number, number, number] }[] = [
+  { share: 0.45, color: [1.0, 0.62, 0.32] },
+  { share: 0.4, color: [1.0, 0.8, 0.58] },
+  { share: 0.15, color: [0.8, 0.9, 1.0] },
+];
+
+/** Lamp colour for a room hash in [0, 1). */
+export function roomLight(h: number): readonly [number, number, number] {
+  let below = 0;
+  for (const l of ROOM_LIGHTS) if (h < (below += l.share)) return l.color;
+  return ROOM_LIGHTS[ROOM_LIGHTS.length - 1].color;
+}
+
+/** The average lamp colour, for windows too far away to show single rooms. */
+export const ROOM_LIGHT_MEAN = [0, 1, 2].map(c => ROOM_LIGHTS.reduce((s, l) => s + l.share * l.color[c], 0)) as [
+  number,
+  number,
+  number,
+];
+
+const glslVec = (c: readonly number[]) => `vec3(${c.map(v => v.toFixed(3)).join(', ')})`;
+
+const ROOM_DIM = 0.3;
+const ROOM_SPAN = 2.7;
+/** How brightly a lit room glows for a room hash u: most rooms dim (a desk lamp, a TV), a few bright offices. */
+export function roomBrightness(u: number): number {
+  return ROOM_DIM + ROOM_SPAN * u * u;
+}
+export const ROOM_BRIGHTNESS_MEAN = ROOM_DIM + ROOM_SPAN / 3;
+
 /**
- * Mean radiance of a lit room seen through glass, measured from fRoom (wall albedo ~0.55 times
- * a ~4x lamp term with depth falloff). Far-away windows use LIT_ROOM_MEAN * litRatio so that the
- * distant average matches the near per-room pattern and no band appears where they meet.
+ * Mean radiance of a lit room seen through glass, measured from fRoom (wall albedo ~0.55 times the
+ * lamp term with depth falloff): 0.593 per unit of room brightness. Far-away windows use
+ * LIT_ROOM_MEAN * litRatio so that the distant average matches the near per-room pattern and no
+ * band appears where they meet.
  */
-export const LIT_ROOM_MEAN = 1.6;
+export const LIT_ROOM_MEAN = 0.593 * ROOM_BRIGHTNESS_MEAN;
+/** Overall brightness of lit rooms at night, applied near and far alike (1 blew windows out to white). */
+export const NIGHT_ROOM_SCALE = 0.5;
 
 export type FacadeMaterial = MeshStandardMaterial & {
   uniforms: {
@@ -49,6 +83,7 @@ vFBays = aBays;
 
 const fragmentPars = /* glsl */ `
 #define LIT_ROOM_MEAN ${LIT_ROOM_MEAN.toFixed(3)}
+#define NIGHT_ROOM_SCALE ${NIGHT_ROOM_SCALE.toFixed(3)}
 uniform float uNight;
 uniform float uLitRatio;
 uniform float uTime;
@@ -121,7 +156,9 @@ float fRecess(float style) {
 }
 
 vec3 fLightColor(float h) {
-  return h < 0.45 ? vec3(1.0, 0.72, 0.42) : h < 0.85 ? vec3(1.0, 0.85, 0.66) : vec3(0.86, 0.92, 1.0);
+  return h < ${ROOM_LIGHTS[0].share.toFixed(3)} ? ${glslVec(ROOM_LIGHTS[0].color)}
+    : h < ${(ROOM_LIGHTS[0].share + ROOM_LIGHTS[1].share).toFixed(3)} ? ${glslVec(ROOM_LIGHTS[1].color)}
+    : ${glslVec(ROOM_LIGHTS[2].color)};
 }
 
 /*facade:interior*/
@@ -163,7 +200,10 @@ vec3 fRoom(vec3 p, vec3 rd, vec3 roomSize, float h, float lit, float night) {
   float ceilingGlow = (t == tMax.y && rd.y > 0.0) ? fixture * 2.5 : 0.0;
   vec3 nightLight = lightCol * (0.9 + ceilingGlow + 0.6 * (1.0 - hit.y / roomSize.y));
   vec3 dayLight = vec3(0.16, 0.17, 0.18);
-  vec3 light = mix(dayLight, lit * nightLight * (1.4 + 2.6 * fHash(vec2(h, 25.0))) + vec3(0.004), night);
+  /*facade:room-brightness*/
+  float roomU = fHash(vec2(h, 25.0));
+  float brightness = ${ROOM_DIM.toFixed(3)} + ${ROOM_SPAN.toFixed(3)} * roomU * roomU;
+  vec3 light = mix(dayLight, lit * nightLight * NIGHT_ROOM_SCALE * brightness + vec3(0.004), night);
   return col * light * depthShade;
 }
 `;
@@ -296,7 +336,7 @@ if (fOpenCover > 0.001) {
     fLitAtLevel(floor(level) + 1.0, fCellX, fFloor, seedI, uLitRatio),
     fract(level)
   );
-  vec3 farRoom = mix(vec3(0.05), vec3(1.0, 0.82, 0.6) * LIT_ROOM_MEAN * fFarLit + vec3(0.004), uNight);
+  vec3 farRoom = mix(vec3(0.05), ${glslVec(ROOM_LIGHT_MEAN)} * LIT_ROOM_MEAN * NIGHT_ROOM_SCALE * fFarLit + vec3(0.004), uNight);
   room = mix(room, farRoom, fFar);
 
   float cosT = clamp(fVt.z, 0.0, 1.0);

@@ -22,3 +22,8 @@ test('daytime bloom only catches highlights above diffuse white', () => {
   expect(PRESETS.day.bloomThreshold).toBeGreaterThan(1.5);
   expect(PRESETS.day.bloomIntensity).toBeLessThan(PRESETS.night.bloomIntensity);
 });
+
+test('golden hour has light shafts; the moon only a faint hint', () => {
+  expect(PRESETS.day.shafts).toBeGreaterThan(0.5);
+  expect(PRESETS.night.shafts).toBeLessThan(0.2);
+});

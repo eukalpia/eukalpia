@@ -99,3 +99,11 @@ test('roof props stay on their roofs', () => {
   for (const p of city.props) expect(Number.isFinite(p.y)).toBe(true);
   expect(city.props.length).toBeGreaterThan(city.specs.length);
 });
+
+test('curtain walls carry no sub-pixel fin geometry', () => {
+  const lot = layout.lots.find(l => l.role === 'filler')!;
+  const spec = { ...planBuilding(lot, 0, mulberry32(9)), style: 'glass' as const, crown: 'flat' as const };
+  const { trims } = buildBuildingGeometry(spec, mulberry32(10));
+  // Per tier: a cornice ring (4 closed boxes, 12 triangles each) and a parapet ring (4 open boxes, 10 each).
+  expect(trims.index!.count / 3).toBe(spec.tiers.length * (4 * 12 + 4 * 10));
+});

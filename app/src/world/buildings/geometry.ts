@@ -199,10 +199,11 @@ function emitTrims(spec: BuildingSpec, b: MeshBuilder, rng: Rng) {
     b.ring(t, t.y1 - 0.8, t.y1, corniceOut, corniceOut + 0.2);
     b.ring(t, t.y1, t.y1 + 1.1, 0, 0.3, false);
 
-    if (spec.style === 'artdeco' || spec.style === 'glass') {
-      const step = spec.style === 'artdeco' ? 2 : 2;
-      const finW = spec.style === 'artdeco' ? 0.6 : 0.14;
-      const finOut = spec.style === 'artdeco' ? 0.32 : 0.28;
+    // Art deco pilasters; curtain-wall mullions are drawn by the facade shader (thin fins alias).
+    if (spec.style === 'artdeco') {
+      const step = 2;
+      const finW = 0.6;
+      const finOut = 0.32;
       for (const f of wallFaces(t)) {
         const { bays, margin } = baysOn(f.length, spec.bayWidth);
         const dir: V3 = [(f.b[0] - f.a[0]) / f.length, 0, (f.b[2] - f.a[2]) / f.length];

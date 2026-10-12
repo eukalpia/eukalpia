@@ -23,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
       shot={params.shot}
       reducedMotion={reducedMotion}
       webgl2={supportsWebGL2()}
+      debug={params.debug}
     />
   </StrictMode>,
 );

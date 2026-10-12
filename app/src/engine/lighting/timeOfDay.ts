@@ -17,6 +17,7 @@ export interface LightingPreset {
   fogHeightFalloff: number;
   windowLitRatio: number;
   bloomThreshold: number;
+  bloomIntensity: number;
 }
 
 export const PRESETS: Record<TimeOfDay, LightingPreset> = {
@@ -25,15 +26,16 @@ export const PRESETS: Record<TimeOfDay, LightingPreset> = {
     sunAzimuthDeg: 220,
     sunColor: 0xfff1e0,
     sunIntensity: 4.2,
-    exposure: 1.0,
+    exposure: 0.62,
     turbidity: 2.4,
     rayleigh: 1.2,
     envIntensity: 1.0,
     fogColor: 0xbfd3e6,
-    fogDensity: 0.00022,
+    fogDensity: 0.00012,
     fogHeightFalloff: 0.0016,
     windowLitRatio: 0.04,
-    bloomThreshold: 0.95,
+    bloomThreshold: 2.4,
+    bloomIntensity: 0.35,
   },
   night: {
     sunElevationDeg: 38,
@@ -47,8 +49,9 @@ export const PRESETS: Record<TimeOfDay, LightingPreset> = {
     fogColor: 0x0d1420,
     fogDensity: 0.00035,
     fogHeightFalloff: 0.0012,
-    windowLitRatio: 0.38,
+    windowLitRatio: 0.28,
     bloomThreshold: 0.62,
+    bloomIntensity: 0.9,
   },
 };
 

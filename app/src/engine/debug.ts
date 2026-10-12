@@ -6,10 +6,15 @@ const SHOT_NAMES: readonly ShotName[] = ['orbit-day', 'orbit-night', 'underside'
 const TIMES: readonly TimeOfDay[] = ['day', 'night'];
 const TIERS: readonly QualityTier[] = ['high', 'medium', 'low'];
 
+/** Look-dev switches that turn one subsystem off at a time. */
+export type DebugFlag = 'nofog' | 'noreflect' | 'nopost' | 'noclouds' | 'noshadow' | 'nobloom' | 'noao';
+const DEBUG_FLAGS: readonly DebugFlag[] = ['nofog', 'noreflect', 'nopost', 'noclouds', 'noshadow', 'nobloom', 'noao'];
+
 export interface ShotParams {
   shot?: ShotName;
   time?: TimeOfDay;
   quality?: QualityTier;
+  debug?: DebugFlag[];
 }
 
 function oneOf<T extends string>(value: string | null, allowed: readonly T[]): T | undefined {
@@ -25,6 +30,10 @@ export function parseShotParams(search: string): ShotParams {
   if (shot) params.shot = shot;
   if (time) params.time = time;
   if (quality) params.quality = quality;
+  const debug = (query.get('debug') ?? '')
+    .split(',')
+    .filter((f): f is DebugFlag => (DEBUG_FLAGS as readonly string[]).includes(f));
+  if (debug.length) params.debug = debug;
   return params;
 }
 

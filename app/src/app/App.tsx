@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createWorld, type QualityTier, type TimeOfDay, type World } from '../engine/world';
-import type { ShotName } from '../engine/debug';
+import type { DebugFlag, ShotName } from '../engine/debug';
 
 export interface AppProps {
   quality: QualityTier;
@@ -8,6 +8,7 @@ export interface AppProps {
   shot?: ShotName;
   reducedMotion: boolean;
   webgl2: boolean;
+  debug?: DebugFlag[];
 }
 
 export function Postcard() {
@@ -19,7 +20,7 @@ export function Postcard() {
   );
 }
 
-export function App({ quality, initialTime, shot, reducedMotion, webgl2 }: AppProps) {
+export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug }: AppProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
   const [postcard, setPostcard] = useState(!webgl2);
@@ -29,7 +30,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2 }: AppPr
     const canvas = canvasRef.current;
     if (!canvas || postcard) return;
     let disposed = false;
-    createWorld(canvas, { quality, time: initialTime, shot, reducedMotion })
+    createWorld(canvas, { quality, time: initialTime, shot, reducedMotion, debug })
       .then(world => {
         if (disposed) return world.dispose();
         worldRef.current = world;
@@ -46,6 +47,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2 }: AppPr
       worldRef.current?.dispose();
       worldRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quality, initialTime, shot, reducedMotion, postcard]);
 
   useEffect(() => worldRef.current?.setTime(time), [time]);

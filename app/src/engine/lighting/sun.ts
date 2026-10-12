@@ -26,7 +26,13 @@ export function createSun(parent: Object3D, camera: PerspectiveCamera, tier: Qua
     lightIntensity: 4,
     shadowBias: -0.0002,
   });
-  for (const light of csm.lights) light.shadow.normalBias = 0.35;
+  // Far cascades cover more meters per shadow texel, so they need a larger normal offset.
+  const normalBias = [0.12, 0.35, 0.8, 1.6];
+  csm.lights.forEach((light, i) => {
+    light.shadow.normalBias =
+      normalBias[Math.min(i, normalBias.length - 1)] * (settings.shadowMapSize === 1024 ? 2 : 1);
+    light.shadow.bias = -0.0004;
+  });
 
   const dir = new Vector3();
   const color = new Color();

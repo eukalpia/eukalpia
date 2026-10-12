@@ -16,3 +16,9 @@ test('azimuth 180 points the light from the south (+z)', () => {
   expect(d.z).toBeCloseTo(1);
   expect(d.x).toBeCloseTo(0);
 });
+
+test('daytime bloom only catches highlights above diffuse white', () => {
+  // A threshold under ~1.5 lets sunlit clouds and sky bloom and veils the whole frame.
+  expect(PRESETS.day.bloomThreshold).toBeGreaterThan(1.5);
+  expect(PRESETS.day.bloomIntensity).toBeLessThan(PRESETS.night.bloomIntensity);
+});

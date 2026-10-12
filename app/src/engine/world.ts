@@ -4,6 +4,7 @@ import {
   Clock,
   Mesh,
   MeshStandardMaterial,
+  NoToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
   Scene,
@@ -14,12 +15,14 @@ import {
 import { DISTRICTS } from '../content/districts';
 import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../world/city';
 import { DEFAULT_SEED, createLayout } from '../world/layout';
+import { createClouds } from './atmosphere/clouds';
 import { createOrbit } from './camera/orbit';
-import { installDebug, type DebugHandle, type ShotName } from './debug';
+import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
 import { createSky } from './lighting/sky';
 import { createSun } from './lighting/sun';
-import { PRESETS, type TimeOfDay } from './lighting/timeOfDay';
+import { PRESETS, sunDirection, type TimeOfDay } from './lighting/timeOfDay';
+import { createPost } from './post';
 import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, type QualityTier } from './quality';
 
 export type { QualityTier } from './quality';
@@ -30,6 +33,7 @@ export interface WorldOptions {
   time: TimeOfDay;
   shot?: ShotName;
   reducedMotion: boolean;
+  debug?: DebugFlag[];
 }
 
 export interface World {
@@ -46,7 +50,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   renderer.info.autoReset = false;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFShadowMap;
-  renderer.toneMapping = AgXToneMapping;
+  // Tone mapping and exposure happen in the post stack.
+  renderer.toneMapping = NoToneMapping;
   const settings = TIER_SETTINGS[opts.quality];
   const budget = BUDGETS[opts.quality];
   // Shots render at a fixed DPR of 1: the software rasterizer would otherwise trip the adaptive scaler.
@@ -63,6 +68,13 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   scene.add(sky.mesh);
   const environment = createEnvironment(renderer);
   const sun = createSun(scene, camera, opts.quality);
+  const clouds = createClouds(opts.quality);
+  scene.add(clouds.mesh);
+  const flags = new Set(opts.debug ?? []);
+  const post = createPost(renderer, scene, camera, opts.quality, flags);
+  const sunDir = new Vector3();
+  if (flags.has('noclouds')) clouds.mesh.visible = false;
+  if (flags.has('noshadow')) for (const light of sun.csm.lights) light.castShadow = false;
 
   const textures = await loadWorldTextures(renderer, import.meta.env.BASE_URL);
   const layout = createLayout(DEFAULT_SEED, DISTRICTS);
@@ -80,19 +92,23 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const reflectionPoint = new Vector3(56, 60, 56);
   let reflection: { texture: Texture; dispose(): void } | null = null;
 
+  let currentTime = opts.time;
   function setTime(time: TimeOfDay) {
+    currentTime = time;
     const preset = PRESETS[time];
     sky.setPreset(preset, time);
     sun.setPreset(preset);
     scene.environment = environment.update(sky.mesh);
     scene.environmentIntensity = preset.envIntensity;
-    renderer.toneMappingExposure = preset.exposure;
+    sunDirection(preset, sunDir);
+    clouds.setPreset(preset, sunDir, time === 'night');
+    post.setPreset(flags.has('nofog') ? { ...preset, fogDensity: 0 } : preset, sunDir);
     city.setNight(time === 'night', preset.windowLitRatio);
     sun.update();
     city.facade.envMap = null;
     reflection?.dispose();
-    reflection = captureCityReflection(renderer, scene, reflectionPoint);
-    city.facade.envMap = reflection.texture;
+    reflection = flags.has('noreflect') ? null : captureCityReflection(renderer, scene, reflectionPoint);
+    city.facade.envMap = reflection?.texture ?? null;
     city.facade.envMapIntensity = preset.envIntensity;
   }
   setTime(opts.time);
@@ -115,14 +131,22 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     orbit.update(dt);
     sky.update(clock.elapsedTime);
     city.update(dt);
+    clouds.update(clock.elapsedTime);
     sun.update();
     renderer.info.reset();
-    renderer.render(scene, camera);
+    if (flags.has('nopost')) {
+      renderer.toneMapping = AgXToneMapping;
+      renderer.toneMappingExposure = PRESETS[currentTime].exposure;
+      renderer.render(scene, camera);
+    } else post.render(dt);
     debug.frame += 1;
     if (debug.frame >= 2) debug.ready = true;
     // Frame time is the real interval between frames, so GPU-bound slowness is included.
     const nextDpr = adaptive?.update(rawDt * 1000, dt);
-    if (nextDpr) renderer.setPixelRatio(nextDpr);
+    if (nextDpr) {
+      renderer.setPixelRatio(nextDpr);
+      resize(size.width, size.height);
+    }
   }
 
   // Rendering stops while the tab is hidden and resumes when it is shown again.
@@ -130,8 +154,12 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   document.addEventListener('visibilitychange', syncLoop);
   syncLoop();
 
+  const size = { width: 1, height: 1 };
   function resize(width: number, height: number) {
+    size.width = width;
+    size.height = height;
     renderer.setSize(width, height, false);
+    post.setSize(width, height);
     camera.aspect = width / Math.max(1, height);
     camera.updateProjectionMatrix();
     sun.csm.updateFrustums();
@@ -150,6 +178,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       orbit.dispose();
       sun.dispose();
       sky.dispose();
+      clouds.dispose();
+      post.dispose();
       city.dispose();
       reflection?.dispose();
       environment.dispose();

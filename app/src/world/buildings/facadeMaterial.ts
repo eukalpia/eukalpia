@@ -13,6 +13,13 @@ export interface FacadeTextures {
   brick: TextureSet;
 }
 
+/**
+ * Mean radiance of a lit room seen through glass, measured from fRoom (wall albedo ~0.55 times
+ * a ~4x lamp term with depth falloff). Far-away windows use LIT_ROOM_MEAN * litRatio so that the
+ * distant average matches the near per-room pattern and no band appears where they meet.
+ */
+export const LIT_ROOM_MEAN = 1.6;
+
 export type FacadeMaterial = MeshStandardMaterial & {
   uniforms: {
     uNight: { value: number };
@@ -41,6 +48,7 @@ vFBays = aBays;
 `;
 
 const fragmentPars = /* glsl */ `
+#define LIT_ROOM_MEAN ${LIT_ROOM_MEAN.toFixed(3)}
 uniform float uNight;
 uniform float uLitRatio;
 uniform float uTime;
@@ -61,6 +69,30 @@ float fHash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);
   p3 += dot(p3, p3.yzx + 33.33);
   return fract((p3.x + p3.y) * p3.z);
+}
+
+// Integer PCG hash for lattice inputs (window x floor): float hashes show diagonal banding there.
+uint fPcg(uint v) {
+  uint state = v * 747796405u + 2891336453u;
+  uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (word >> 22u) ^ word;
+}
+
+float fHashI(float a, float b, float c) {
+  uvec3 q = uvec3(ivec3(int(a) + 65536, int(b) + 65536, int(c)));
+  return float(fPcg(q.x + fPcg(q.y + fPcg(q.z)))) / 4294967295.0;
+}
+
+/*facade:farlit*/
+// Expected fraction of lit rooms in a block of windows that one pixel covers. Blocks grow by 2x per
+// level; the spread shrinks like the standard deviation of a mean over N rooms, with extra variance
+// because whole floors tend to be lit or dark together.
+float fLitAtLevel(float level, float cellX, float floorIndex, float seedI, float p) {
+  float n = exp2(level);
+  float m = exp2(max(level - 1.0, 0.0));
+  float h = fHashI(floor(cellX / n) + level * 4096.0, floor(floorIndex / m), seedI + 17.0);
+  float sigma = sqrt(p * (1.0 - p) / (n * m)) * 1.6;
+  return clamp(p + (h - 0.5) * 3.46 * sigma, 0.0, 1.0);
 }
 
 float fNoise(vec2 p) {
@@ -152,7 +184,8 @@ vec3 fVt = vec3(dot(fV, fT), fV.y, max(dot(fV, fN), 0.02));
 vec2 fUv = vFUv;
 // Pixel footprint in meters drives edge antialiasing and the far-distance average.
 vec2 fFw = max(fwidth(fUv), vec2(1e-4));
-float fFar = smoothstep(0.3, 0.9, max(fFw.x / fBay, fFw.y / fFloorH));
+// A per-window pattern aliases into moiré once a pixel spans more than half a bay (Nyquist), so fade early.
+float fFar = smoothstep(0.15, 0.5, max(fFw.x / fBay, fFw.y / fFloorH));
 float fCellX = floor(fUv.x / fBay);
 float fFloor = floor(fUv.y / fFloorH);
 vec2 fCell = vec2(fUv.x / fBay, fUv.y / fFloorH) - vec2(fCellX, fFloor);
@@ -234,10 +267,13 @@ if (fOpenCover > 0.001) {
   float frameTone = fStyle > 1.5 && fStyle < 2.5 ? 0.04 : fHash(vec2(fSeed, 9.0)) < 0.5 ? 0.04 : 0.5;
 
   // Interior behind the glass.
-  float roomSpan = 1.0 + floor(fHash(vec2(fFloor, fSeed * 31.0)) * 3.0);
+  float seedI = floor(fSeed * 1048576.0);
+  float roomSpan = 1.0 + floor(fHashI(fFloor, 7.0, seedI) * 3.0);
   float roomIdx = floor(fCellX / roomSpan);
-  float h = fHash(vec2(roomIdx + fSeed * 913.0, fFloor + fSeed * 71.0));
-  float lit = step(h, uLitRatio);
+  float h = fHashI(roomIdx, fFloor, seedI);
+  // Some floors are mostly dark, others mostly lit, around the global ratio.
+  float floorLit = clamp(uLitRatio * (0.15 + 1.7 * fHashI(fFloor, 3.0, seedI)), 0.0, 0.95);
+  float lit = step(h, floorLit);
   vec3 room;
   if (fFar < 0.99) {
     vec3 rd = normalize(vec3(-fVt.x, -fVt.y, fVt.z));
@@ -254,7 +290,13 @@ if (fOpenCover > 0.001) {
     room = vec3(0.0);
   }
   // Far away, one pixel covers several rooms: use their expected glow instead of one random room.
-  vec3 farRoom = mix(vec3(0.05), vec3(1.0, 0.8, 0.58) * 2.6 * uLitRatio + vec3(0.004), uNight);
+  float level = clamp(log2(max(fFw.x / fBay, fFw.y / fFloorH) * 2.0), 0.0, 6.0);
+  float fFarLit = mix(
+    fLitAtLevel(floor(level), fCellX, fFloor, seedI, uLitRatio),
+    fLitAtLevel(floor(level) + 1.0, fCellX, fFloor, seedI, uLitRatio),
+    fract(level)
+  );
+  vec3 farRoom = mix(vec3(0.05), vec3(1.0, 0.82, 0.6) * LIT_ROOM_MEAN * fFarLit + vec3(0.004), uNight);
   room = mix(room, farRoom, fFar);
 
   float cosT = clamp(fVt.z, 0.0, 1.0);

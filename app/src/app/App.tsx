@@ -12,6 +12,7 @@ import { ProjectsPanel } from './panels/Projects';
 import { PhotoPanel } from './PhotoPanel';
 import { WalkControls } from './walk/WalkControls';
 import { discover, loadSignals, saveSignals } from './signals';
+import { createAmbient, type Ambient } from './sound';
 import { initialUiState, uiReducer, type UiAction } from './state';
 import type { SignalId } from '../content/signals';
 import { shareUrl, withSector, type Sector } from './url';
@@ -40,6 +41,7 @@ const TOAST_MS = 5500;
 const COPIED_MS = 2500;
 const FREE_FLIGHT = 'FREE FLIGHT · Click the city, then W A S D to move. Q / E change altitude. Drag to turn.';
 const SUIT_FAILED = 'The exploration suit could not load. Please try Walk again.';
+const NO_AUDIO = 'Audio is unavailable in this browser. The city is still open.';
 const SUIT_LOADING = 'UR-01 is still loading…';
 const BLACKOUT_MS = 4200;
 const KNOCKS = 7;
@@ -132,6 +134,17 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     const id = window.setTimeout(() => setToast(''), TOAST_MS);
     return () => window.clearTimeout(id);
   }, [toast]);
+
+  // Ambient sound (inventory 3.9): made on the first press, as browsers require.
+  const ambientRef = useRef<Ambient | null>(null);
+  useEffect(() => () => ambientRef.current?.dispose(), []);
+  useEffect(() => {
+    const ambient = (ambientRef.current ??= createAmbient());
+    ambient.setOn(ui.sound).catch(() => {
+      setToast(NO_AUDIO);
+      if (uiRef.current.sound) dispatch({ type: 'toggleSound' });
+    });
+  }, [ui.sound]);
 
   // The world follows the interface state.
   useEffect(() => world?.setTime(ui.night ? 'night' : 'day'), [world, ui.night]);

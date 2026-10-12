@@ -25,7 +25,8 @@ const nearSpawn = (dx: number, y: number, dz: number): Vec3 => [CHARACTER_SPAWN.
 export const SHOT_PRESETS: Record<ShotName, { position: Vec3; target: Vec3 }> = {
   'orbit-day': { position: [720, 420, 780], target: [0, 40, 0] },
   'orbit-night': { position: [720, 420, 780], target: [0, 40, 0] },
-  underside: { position: [520, -380, 620], target: [0, -120, 0] },
+  // Floor −1: just above the cloud deck (CLOUD_TOP −300), looking up at the islands' roots.
+  underside: { position: [440, -255, 540], target: [0, -105, 0] },
   skyline: { position: [260, 70, 340], target: [0, 120, 0] },
   // Eye height on the east sidewalk of the ring avenue, looking north-west towards the monolith.
   'street-day': { position: [69, 1.7, 160], target: [48, 34, 30] },

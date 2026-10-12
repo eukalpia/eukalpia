@@ -205,3 +205,18 @@ test('cars are split into paint, glass, tyres, chrome and lenses for the path tr
   expect(c.getX(0)).toBeGreaterThan(c.getZ(0));
   fleet.dispose();
 });
+
+test('instanced meshes with no instances are skipped (level-of-detail halves are often empty)', () => {
+  const empty = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial(), 4);
+  empty.count = 0;
+  empty.name = 'tree-wood-0:near';
+  const one = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial(), 4);
+  one.count = 1;
+  one.setMatrixAt(0, new Matrix4());
+  one.name = 'tree-wood-0:far';
+  const group = new Group();
+  group.add(empty, one);
+  const out = meshes(buildPhotoScene([group], options()).scene);
+  expect(out.map(m => m.name)).toContain('tree-wood-0:far');
+  expect(out.map(m => m.name)).not.toContain('tree-wood-0:near');
+});

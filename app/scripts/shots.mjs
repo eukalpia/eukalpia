@@ -2,7 +2,7 @@
 // (SwiftShader), and checked for console errors, shader failures and frame budgets.
 //
 // Usage: node scripts/shots.mjs [--quality=high|medium|low] [--no-webgl] [--no-float] [--photo=N] [--size=WxH] [--port=N]
-//   [--ui=step,step] [--query=k=v&k=v] <shot...>
+//   [--ui=step,step] [--query=k=v&k=v] [--reduced-motion] <shot...>
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -103,7 +103,11 @@ try {
     executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
     args: browserArgs,
   });
-  const context = await browser.newContext({ viewport: { width, height } });
+  // --reduced-motion: camera flights land at once, so a shot shows where navigation ends.
+  const context = await browser.newContext({
+    viewport: { width, height },
+    reducedMotion: args.includes('--reduced-motion') ? 'reduce' : 'no-preference',
+  });
 
   if (noWebgl) {
     const page = await context.newPage();

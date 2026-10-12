@@ -7,6 +7,7 @@ import {
   Matrix4,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   PointLight,
   Scene,
@@ -21,13 +22,14 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { STYLE_IDS } from '../world/buildings/styles';
 import type { CityLayout, IslandId } from '../world/layout';
+import { CAR_PART } from '../world/street/cars';
 import { bakeFacade, bakeGround, facadeUV, rockUVs, type BakedMaps } from './bake';
 
 /**
  * How a mesh enters the photo scene, set as `userData.photo` by the module that builds it.
  * Unset means: copy its standard material as it is.
  */
-export type PhotoRole = 'facade' | 'trim' | 'roof' | 'rock' | 'ground' | 'skip';
+export type PhotoRole = 'facade' | 'trim' | 'roof' | 'rock' | 'ground' | 'car' | 'skip';
 
 export interface PhotoSceneOptions {
   night: boolean;
@@ -52,7 +54,7 @@ export interface PhotoScene {
 }
 
 const STANDARD = MeshStandardMaterial.prototype.onBeforeCompile;
-const KEEP = ['position', 'normal', 'uv', 'color'];
+const KEEP = ['position', 'normal', 'uv', 'color', 'aPart'];
 
 function clean<T extends Material>(m: T): T {
   m.onBeforeCompile = STANDARD;
@@ -238,6 +240,53 @@ function bakeTrim(mesh: Mesh, roof: boolean): { stone: BufferGeometry; steel: Bu
   return out;
 }
 
+/** The triangles of one car part, as a non-indexed geometry (null if there are none). */
+function splitByPart(source: BufferGeometry, part: number): BufferGeometry | null {
+  const g = source.index ? source.toNonIndexed() : source;
+  const parts = g.getAttribute('aPart');
+  if (!parts) return null;
+  const keep: number[] = [];
+  for (let t = 0; t < parts.count; t += 3) if (Math.round(parts.getX(t)) === part) keep.push(t);
+  if (keep.length === 0) return null;
+  const out = new BufferGeometry();
+  for (const name of ['position', 'normal', 'color']) {
+    const a = g.getAttribute(name);
+    if (!a) continue;
+    const data = new Float32Array(keep.length * 3 * a.itemSize);
+    keep.forEach((t, i) =>
+      data.set((a.array as Float32Array).subarray(t * a.itemSize, (t + 3) * a.itemSize), i * 3 * a.itemSize),
+    );
+    out.setAttribute(name, new BufferAttribute(data, a.itemSize));
+  }
+  if (g !== source) g.dispose();
+  return out;
+}
+
+function carPartMaterial(part: keyof typeof CAR_PART): MeshStandardMaterial {
+  switch (part) {
+    case 'paint':
+      return new MeshPhysicalMaterial({
+        vertexColors: true,
+        roughness: 0.38,
+        metalness: 0.35,
+        clearcoat: 1,
+        clearcoatRoughness: 0.06,
+      });
+    case 'glass':
+      return new MeshStandardMaterial({ color: new Color(0.02, 0.025, 0.03), roughness: 0.05 });
+    case 'tyre':
+      return new MeshStandardMaterial({ color: new Color(0.028, 0.028, 0.028), roughness: 0.88 });
+    case 'chrome':
+      return new MeshStandardMaterial({ color: new Color(0.5, 0.5, 0.5), roughness: 0.3, metalness: 1 });
+    case 'tail':
+      return new MeshStandardMaterial({ color: new Color(0.35, 0.015, 0.01), roughness: 0.08 });
+    case 'plate':
+      return new MeshStandardMaterial({ color: new Color(0.78, 0.78, 0.74), roughness: 0.45, metalness: 0 });
+    default:
+      return new MeshStandardMaterial({ color: new Color(0.36, 0.38, 0.4), roughness: 0.08 });
+  }
+}
+
 export function buildPhotoScene(sources: Object3D[], opts: PhotoSceneOptions): PhotoScene {
   const scene = new Scene();
   scene.name = 'PhotoScene';
@@ -304,6 +353,19 @@ export function buildPhotoScene(sources: Object3D[], opts: PhotoSceneOptions): P
           keep(new MeshStandardMaterial({ map: maps.map, roughnessMap: maps.roughnessMap, roughness: 1 })),
           mesh.name,
         );
+        return;
+      }
+      if (role === 'car') {
+        // Car paint is one shader with per-vertex parts; the path tracer needs a material per part.
+        const merged = (mesh as InstancedMesh).isInstancedMesh
+          ? expandInstances(mesh as InstancedMesh).get('')!
+          : worldGeometry(mesh.geometry, mesh.matrixWorld);
+        if (!merged) return;
+        for (const [name, part] of Object.entries(CAR_PART)) {
+          const g = splitByPart(merged, part);
+          if (g) add(g, carPartMaterial(name as keyof typeof CAR_PART), `${mesh.name}:${name}`);
+        }
+        merged.dispose();
         return;
       }
       if (role === 'rock') {

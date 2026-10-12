@@ -122,7 +122,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const clutterPlan = planClutter(layout, city.specs);
   const clutter = createClutterMeshes(clutterPlan, { sun, tier: opts.quality });
   scene.add(clutter.group);
-  const traffic = createTraffic(layout, city.specs, terrain.street, {
+  const traffic = createTraffic(layout, city.specs, {
     sun,
     cars: { high: 260, medium: 160, low: 60 }[opts.quality],
     crossings: clutterPlan.crossings,
@@ -341,7 +341,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     terrain.update(timer.getElapsed());
     // The traced scene is a still: traffic and signals pause with it.
     streetClock += street;
-    traffic.update(street, streetClock);
+    traffic.update(street, streetClock, camera.position);
+    terrain.street.update(camera.position);
     clutter.update(streetClock);
     updateStreetLights(currentTime === 'night');
     presence?.update(camera, currentTime === 'night');

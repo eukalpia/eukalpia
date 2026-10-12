@@ -3,7 +3,6 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
-  CylinderGeometry,
   DoubleSide,
   Group,
   InstancedMesh,
@@ -16,10 +15,11 @@ import {
   Vector3,
   type Material,
 } from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { SunRig } from '../../engine/lighting/sun';
 import { TIER_SETTINGS, type CasterKind, type QualityTier } from '../../engine/quality';
 import { MeshBuilder } from '../buildings/geometry';
+import { carKindFor, createCarFleet, type CarFleet } from './cars';
+import { createBarkMaterial, createTrunkLod, trunkGeometry, type TrunkLod } from './trees';
 import { mulberry32, range } from '../rng';
 import type { FurniturePlan, Placement } from './furniture';
 
@@ -46,73 +46,17 @@ function benchGeometry(): BufferGeometry {
 }
 
 /** Car body along local +x: 4.4 m long, 1.85 m wide. Glass is a separate mesh. */
-function carGeometry(): { body: BufferGeometry; glass: BufferGeometry; wheels: BufferGeometry } {
-  const body = new MeshBuilder();
-  body.box(-2.2, 0.32, -0.92, 2.2, 0.95, 0.92);
-  body.box(-2.05, 0.95, -0.9, -1.15, 1.05, 0.9);
-  body.box(1.05, 0.95, -0.9, 2.15, 1.02, 0.9);
-  body.box(-1.15, 1.42, -0.78, 0.95, 1.48, 0.78);
-  const glass = new MeshBuilder();
-  // Cabin as a frustum: sloped windscreen and rear window.
-  const lo = 0.95;
-  const hi = 1.42;
-  const v = (x: number, y: number, z: number): [number, number, number] => [x, y, z];
-  glass.quad(
-    v(-1.15, lo, 0.88),
-    v(1.05, lo, 0.88),
-    v(0.85, hi, 0.76),
-    v(-0.95, hi, 0.76),
-    [0, 0.3, 0.95],
-    [0, 0, 1, 0, 1, 1, 0, 1],
-  );
-  glass.quad(
-    v(1.05, lo, -0.88),
-    v(-1.15, lo, -0.88),
-    v(-0.95, hi, -0.76),
-    v(0.85, hi, -0.76),
-    [0, 0.3, -0.95],
-    [0, 0, 1, 0, 1, 1, 0, 1],
-  );
-  glass.quad(
-    v(1.05, lo, 0.88),
-    v(1.05, lo, -0.88),
-    v(0.85, hi, -0.76),
-    v(0.85, hi, 0.76),
-    [0.9, 0.42, 0],
-    [0, 0, 1, 0, 1, 1, 0, 1],
-  );
-  glass.quad(
-    v(-1.15, lo, -0.88),
-    v(-1.15, lo, 0.88),
-    v(-0.95, hi, 0.76),
-    v(-0.95, hi, -0.76),
-    [-0.9, 0.42, 0],
-    [0, 0, 1, 0, 1, 1, 0, 1],
-  );
-  const wheels = mergeGeometries(
-    [
-      [-1.35, -0.84],
-      [1.35, -0.84],
-      [-1.35, 0.84],
-      [1.35, 0.84],
-    ].map(([x, z]) => new CylinderGeometry(0.34, 0.34, 0.24, 14).rotateX(Math.PI / 2).translate(x, 0.34, z)),
-  );
-  return { body: body.build(), glass: glass.build(), wheels };
-}
-
 /** A tree: tapered trunk, three boughs and a crown of leaf cards. Leaf cards carry uv for the leaf texture. */
-function treeGeometry(variant: number, cards: number): { wood: BufferGeometry; leaves: BufferGeometry } {
+function treeGeometry(
+  variant: number,
+  cards: number,
+): { wood: BufferGeometry; woodFar: BufferGeometry; leaves: BufferGeometry } {
   const rng = mulberry32(1000 + variant);
-  const wood = new MeshBuilder();
   const height = [5.5, 7, 8.5][variant];
-  wood.cylinder(0, 0, 0, height * 0.55, 0.22, 0.14, 7);
+  const trunkRadius = [0.18, 0.21, 0.24][variant];
+  const wood = trunkGeometry(height, trunkRadius, 1000 + variant);
+  const woodFar = trunkGeometry(height, trunkRadius, 1000 + variant, 'far');
   const crownY = height * 0.62;
-  for (let i = 0; i < 3; i++) {
-    const a = (i / 3) * Math.PI * 2 + rng();
-    const bx = Math.cos(a) * 1.1;
-    const bz = Math.sin(a) * 1.1;
-    wood.cylinder(bx * 0.5, bz * 0.5, height * 0.45, crownY + 0.6, 0.09, 0.05, 5);
-  }
   const pos: number[] = [];
   const nor: number[] = [];
   const uv: number[] = [];
@@ -163,7 +107,7 @@ function treeGeometry(variant: number, cards: number): { wood: BufferGeometry; l
   leaves.setAttribute('color', new BufferAttribute(new Float32Array(col), 3));
   leaves.setIndex(idx);
   leaves.computeBoundingSphere();
-  return { wood: wood.build(), leaves };
+  return { wood, woodFar, leaves };
 }
 
 /** Draws a cluster of leaves with alpha into a canvas (browser only). */
@@ -241,6 +185,14 @@ function railingGeometry(plan: FurniturePlan): BufferGeometry {
 
 export const CAR_COLORS = [0x1c1d20, 0xd9d9d6, 0x8a8d91, 0x2b3a55, 0x7a1f1f, 0x3f4a3c, 0xb8a27a, 0x0f2a44];
 
+function placementMatrix(it: Placement): Matrix4 {
+  return new Matrix4().compose(
+    new Vector3(it.x, it.y, it.z),
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), it.rotY),
+    new Vector3(1, 1, 1),
+  );
+}
+
 function instanced(
   geometry: BufferGeometry,
   material: Material,
@@ -269,8 +221,10 @@ export interface StreetMeshes {
   group: Group;
   /** World positions of every lamp head, xyz triples. */
   lampHeads: Float32Array;
-  carGeometry: ReturnType<typeof carGeometry>;
-  carMaterials: { body: MeshStandardMaterial; glass: MeshStandardMaterial; wheels: MeshStandardMaterial };
+  /** Parked cars, detailed near the camera. */
+  parked: CarFleet;
+  /** Re-sorts near and far car bodies around the camera. */
+  update(camera: Vector3): void;
   setNight(night: boolean): void;
   dispose(): void;
 }
@@ -288,17 +242,14 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
     new MeshStandardMaterial({ color: 0xfff1d8, emissive: 0xffc27a, emissiveIntensity: 0, roughness: 0.3 }),
   );
   const wood = keep(new MeshStandardMaterial({ color: 0x4a3626, roughness: 0.85 }));
-  const bark = keep(new MeshStandardMaterial({ color: 0x3a2d22, roughness: 0.95 }));
+  const bark = keep(createBarkMaterial());
   const leafMap = keep(leafTexture());
   const leaves = keep(
     new MeshStandardMaterial({ map: leafMap, alphaTest: 0.45, side: DoubleSide, roughness: 0.8, vertexColors: true }),
   );
   const leafDepth = keep(new MeshDepthMaterial({ depthPacking: RGBADepthPacking, map: leafMap, alphaTest: 0.45 }));
-  const paint = keep(new MeshStandardMaterial({ color: 0xffffff, roughness: 0.32, metalness: 0.55 }));
-  const glass = keep(new MeshStandardMaterial({ color: 0x0b0e12, roughness: 0.06, metalness: 0.3 }));
-  const tyres = keep(new MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }));
   const rail = keep(new MeshStandardMaterial({ color: 0x23272b, roughness: 0.45, metalness: 0.8 }));
-  for (const m of [metal, wood, bark, leaves, paint, glass, tyres, rail]) ctx.sun.setupMaterial(m);
+  for (const m of [metal, wood, bark, leaves, rail]) ctx.sun.setupMaterial(m);
 
   const lamp = lampGeometry();
   disposables.push(lamp.post, lamp.lens);
@@ -307,11 +258,17 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
   lenses.castShadow = false;
   group.add(lenses);
 
+  const trunkLods: TrunkLod[] = [];
   for (let v = 0; v < 3; v++) {
     const items = plan.trees.filter(t => t.variant === v);
     const g = treeGeometry(v, tier.leafCards);
-    disposables.push(g.wood, g.leaves);
-    group.add(instanced(g.wood, bark, items, `tree-wood-${v}`, casts('tree')));
+    disposables.push(g.wood, g.woodFar, g.leaves);
+    const trunks = createTrunkLod(g.wood, g.woodFar, bark, items.map(placementMatrix), {
+      name: `tree-wood-${v}`,
+      castShadow: casts('tree'),
+    });
+    trunkLods.push(trunks);
+    group.add(trunks.near, trunks.far);
     const crown = instanced(g.leaves, leaves, items, `tree-leaves-${v}`, casts('tree'));
     crown.customDepthMaterial = leafDepth;
     // Tint each crown slightly so streets don't look cloned.
@@ -326,17 +283,21 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
   const bench = keep(benchGeometry());
   group.add(instanced(bench, wood, plan.benches, 'benches', casts('street')));
 
-  const car = carGeometry();
-  disposables.push(car.body, car.glass, car.wheels);
-  const bodies = instanced(car.body, paint, plan.parkedCars, 'parked-cars', casts('vehicle'));
-  const color = new Color();
-  plan.parkedCars.forEach((p, i) => bodies.setColorAt(i, color.set(CAR_COLORS[p.variant % CAR_COLORS.length])));
-  if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
-  group.add(
-    bodies,
-    instanced(car.glass, glass, plan.parkedCars, 'parked-glass', casts('vehicle')),
-    instanced(car.wheels, tyres, plan.parkedCars, 'parked-wheels', casts('vehicle')),
+  const m4 = new Matrix4();
+  const q4 = new Quaternion();
+  const parked = keep(
+    createCarFleet(
+      plan.parkedCars.map((p, i) => ({
+        kind: carKindFor(i, false),
+        color: CAR_COLORS[p.variant % CAR_COLORS.length],
+        matrix: m4
+          .clone()
+          .compose(new Vector3(p.x, p.y, p.z), q4.setFromAxisAngle(new Vector3(0, 1, 0), p.rotY), new Vector3(1, 1, 1)),
+      })),
+      { castShadow: casts('vehicle'), setup: m => ctx.sun.setupMaterial(m as MeshStandardMaterial) },
+    ),
   );
+  group.add(...parked.meshes);
 
   const railing = keep(railingGeometry(plan));
   const railMesh = new InstancedMesh(railing, rail, 1);
@@ -357,8 +318,11 @@ export function createStreetMeshes(plan: FurniturePlan, ctx: { sun: SunRig; tier
   return {
     group,
     lampHeads,
-    carGeometry: car,
-    carMaterials: { body: paint, glass, wheels: tyres },
+    parked,
+    update(camera) {
+      parked.update(camera);
+      for (const t of trunkLods) t.update(camera);
+    },
     setNight(night) {
       lensMaterial.emissiveIntensity = night ? 9 : 0;
     },

@@ -1,9 +1,6 @@
 import {
   AgXToneMapping,
-  CircleGeometry,
   Clock,
-  Mesh,
-  MeshStandardMaterial,
   NoToneMapping,
   PCFShadowMap,
   PerspectiveCamera,
@@ -15,6 +12,7 @@ import {
 import { DISTRICTS } from '../content/districts';
 import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../world/city';
 import { DEFAULT_SEED, createLayout } from '../world/layout';
+import { createTerrain } from '../world/terrain';
 import { createClouds } from './atmosphere/clouds';
 import { createOrbit } from './camera/orbit';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
@@ -81,12 +79,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const city = createCityMeshes(layout, DISTRICTS, { tier: opts.quality, sun, textures });
   scene.add(city.group);
 
-  // Temporary ground until the islands are generated.
-  const groundMaterial = new MeshStandardMaterial({ color: 0x6f7275, roughness: 0.9 });
-  sun.setupMaterial(groundMaterial);
-  const ground = new Mesh(new CircleGeometry(260, 96).rotateX(-Math.PI / 2), groundMaterial);
-  ground.receiveShadow = true;
-  scene.add(ground);
+  const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
+  scene.add(terrain.group);
 
   // Glass reflects a capture of the city taken from the ring-avenue crossing next to the monolith.
   const reflectionPoint = new Vector3(56, 60, 56);
@@ -104,6 +98,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     clouds.setPreset(preset, sunDir, time === 'night');
     post.setPreset(flags.has('nofog') ? { ...preset, fogDensity: 0 } : preset, sunDir);
     city.setNight(time === 'night', preset.windowLitRatio);
+    terrain.setNight(time === 'night');
     sun.update();
     city.facade.envMap = null;
     reflection?.dispose();
@@ -132,6 +127,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     sky.update(clock.elapsedTime);
     city.update(dt);
     clouds.update(clock.elapsedTime);
+    terrain.update(clock.elapsedTime);
     sun.update();
     renderer.info.reset();
     if (flags.has('nopost')) {
@@ -181,6 +177,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       clouds.dispose();
       post.dispose();
       city.dispose();
+      terrain.dispose();
       reflection?.dispose();
       environment.dispose();
       renderer.dispose();

@@ -20,6 +20,7 @@ import {
   type Vector3,
   type WebGLRenderer,
 } from 'three';
+import { DenoisePass } from '../phototrace/denoise';
 import { PhotoInputPass } from '../phototrace/photoInputPass';
 import { AtmosphereEffect } from './atmosphere/AtmosphereEffect';
 import { CloudPass } from './atmosphere/clouds';
@@ -31,6 +32,8 @@ export interface PostStack {
   clouds: CloudPass;
   /** Photo mode: feed the path tracer's image in place of the rasterised colour (null returns to raster). */
   setInput(texture: Texture | null): void;
+  /** How many path-traced samples the input holds (the denoiser narrows as they grow). */
+  setPhotoSamples(samples: number): void;
   setSize(width: number, height: number): void;
   setPreset(p: LightingPreset, sunDir: Vector3): void;
   render(dt: number): void;
@@ -51,6 +54,9 @@ export function createPost(
   const photoInput = new PhotoInputPass(scene, camera);
   photoInput.enabled = false;
   composer.addPass(photoInput);
+  const denoise = new DenoisePass(camera);
+  denoise.enabled = false;
+  composer.addPass(denoise);
 
   let ao: N8AOPostPass | null = null;
   if (settings.ao !== 'off' && !flags.has('noao')) {
@@ -93,8 +99,12 @@ export function createPost(
       renderPass.enabled = texture === null;
       photoInput.enabled = texture !== null;
       photoInput.setPathTexture(texture);
+      denoise.enabled = texture !== null;
       // The traced image already holds its own occlusion.
       if (ao) ao.enabled = texture === null;
+    },
+    setPhotoSamples(samples) {
+      denoise.setSamples(samples);
     },
     setSize(width, height) {
       composer.setSize(width, height, false);

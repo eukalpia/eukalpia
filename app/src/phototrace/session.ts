@@ -12,6 +12,8 @@ import type { PhotoScene } from './photoScene';
 import { PHOTO_MESSAGES, PhotoRefusal, checkPhotoSupport, type PhotoResult } from './support';
 
 export const PHOTO_TARGET_SAMPLES = 256;
+/** "Infinity" for the physical camera: everything past the city is in focus. */
+const FOCUS_INFINITY = 10000;
 
 /** The part of WebGLPathTracer the session drives (a fake in tests). */
 export interface TracerLike {
@@ -43,6 +45,8 @@ export interface PhotoDeps {
   onActive(active: boolean): void;
   /** Failures after enter() resolved, e.g. a lost WebGL context. */
   onError(message: string): void;
+  /** The denoiser narrows its filter as samples accumulate. */
+  setSamples?(samples: number): void;
 }
 
 export interface PhotoStatus {
@@ -60,6 +64,10 @@ export interface PhotoSession {
   readonly camera: PhotoCamera | null;
   /** Restarts accumulation (after a change of focus or aperture). */
   restart(): void;
+  /** Focus distance in metres along the view axis; Infinity focuses on the horizon. */
+  setFocus(distance: number): void;
+  /** f-number, clamped to f/1.4 … f/16. */
+  setAperture(fStop: number): void;
   /** The accumulated HDR image, for saving. */
   readonly target: WebGLRenderTarget | null;
   /** Triangles in the traced scene (0 when none is built). */
@@ -180,6 +188,16 @@ export function createPhotoSession(deps: PhotoDeps): PhotoSession {
     restart() {
       tracer?.reset();
     },
+    setFocus(distance) {
+      if (!camera || !tracer) return;
+      camera.focusDistance = Number.isFinite(distance) ? Math.max(0.5, distance) : FOCUS_INFINITY;
+      tracer.updateCamera();
+    },
+    setAperture(fStop) {
+      if (!camera || !tracer) return;
+      camera.fStop = Math.min(16, Math.max(1.4, fStop));
+      tracer.updateCamera();
+    },
     frame() {
       if (phase !== 'tracing' || !tracer || !target) return;
       const { x, y } = deps.renderer.getDrawingBufferSize(size);
@@ -194,6 +212,7 @@ export function createPhotoSession(deps: PhotoDeps): PhotoSession {
       deps.renderer.clear();
       tracer.renderSample();
       deps.renderer.setRenderTarget(previous);
+      deps.setSamples?.(tracer.samples);
     },
   };
   return session;

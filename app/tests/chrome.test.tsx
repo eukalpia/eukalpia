@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 
 let resolveWorld: (w: unknown) => void = () => {};
@@ -144,4 +144,24 @@ test('postcard mode keeps the interface: the image replaces the canvas, Walk and
   expect(document.querySelector('.city-stage')!.classList.contains('is-fallback')).toBe(true);
   // The boot line gives way: the page is as ready as it will get.
   expect(screen.queryByText('ASSEMBLING THE WORLD')).toBeNull();
+});
+
+test('the dock and the credit open their panels; choosing a project opens its inspector', async () => {
+  render(<App quality="high" initialTime="day" reducedMotion webgl2 />);
+  await act(async () => resolveWorld(fakeWorld()));
+  fireEvent.click(screen.getByRole('button', { name: 'Controls and help' }));
+  expect(screen.getByRole('dialog', { name: 'Make yourself at home.' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: "About Umaraliev Ravshan Rustamjon O'gli" }));
+  expect(screen.getByRole('dialog', { name: 'The builder.' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Discoveries, 0 of 6 found' }));
+  expect(screen.getByRole('dialog', { name: 'Look a little closer.' })).toBeTruthy();
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Explore projects' }));
+  fireEvent.click(screen.getByText('University LMS'));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('complementary', { name: 'University LMS' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Close district details' }));
+  expect(screen.queryByRole('complementary')).toBeNull();
 });

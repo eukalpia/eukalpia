@@ -50,11 +50,11 @@ test('while walking near the LMS lift, the hint names the L action', async () =>
   await act(async () => {
     vi.advanceTimersByTime(500);
   });
-  expect(screen.getByRole('status').textContent).toBe('L · Ride to LMS roof');
+  expect(screen.getByText('L · Ride to LMS roof')).toBeTruthy();
   vi.useRealTimers();
 });
 
-test('the walk button follows the world when it leaves walk mode on its own', async () => {
+test('walk mode follows the world when it changes mode on its own', async () => {
   let notify: (mode: 'orbit' | 'walk') => void = () => {};
   render(<App quality="high" initialTime="day" reducedMotion webgl2 />);
   await act(async () => {
@@ -68,12 +68,13 @@ test('the walk button follows the world when it leaves walk mode on its own', as
       onModeChange: (fn: typeof notify) => (notify = fn),
     });
   });
+  const walking = () => document.querySelector('main')!.classList.contains('is-walking');
   fireEvent.click(screen.getByRole('button', { name: 'Walk through the city' }));
-  expect(screen.getByRole('button', { name: 'Return to orbit' })).toBeTruthy();
+  expect(walking()).toBe(true);
   await act(async () => notify('orbit'));
-  expect(screen.getByRole('button', { name: 'Walk through the city' })).toBeTruthy();
+  expect(walking()).toBe(false);
   await act(async () => notify('walk'));
-  expect(screen.getByRole('button', { name: 'Return to orbit' })).toBeTruthy();
+  expect(walking()).toBe(true);
 });
 
 test('walking that is not available yet, or failed to load, says so', async () => {
@@ -86,5 +87,5 @@ test('walking that is not available yet, or failed to load, says so', async () =
   expect(screen.getByRole('status').textContent).toBe('UR-01 is still loading…');
   state = 'failed';
   fireEvent.click(screen.getByRole('button', { name: 'Walk through the city' }));
-  expect(screen.getByRole('status').textContent).toBe('Walking is unavailable: UR-01 could not load.');
+  expect(screen.getByRole('status').textContent).toBe('The exploration suit could not load. Please try Walk again.');
 });

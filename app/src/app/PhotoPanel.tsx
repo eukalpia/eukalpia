@@ -1,3 +1,4 @@
+import { Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { World } from '../engine/world';
 import { saveName } from '../phototrace/focus';
@@ -7,9 +8,32 @@ const DEFAULT_STOP = 5; // f/8: nearly everything sharp
 
 type Status = ReturnType<World['photo']['status']>;
 
-/** The PHOTO button, and while tracing: progress, aperture, click-to-focus, Save frame and Exit. */
-export function PhotoPanel({ world, canvas }: { world: World | null; canvas: HTMLCanvasElement | null }) {
-  const [open, setOpen] = useState(false);
+/** v1's progress line, with a singular for one sample. */
+export function traceStatusText(status: Status): string {
+  if (status?.phase !== 'tracing') return 'Preparing ray tracing…';
+  const n = Math.floor(status.samples);
+  return `Refining light · ${n} ${n === 1 ? 'sample' : 'samples'} · drag to reframe`;
+}
+
+/**
+ * v1's Ray Tracing toggle under the utilities bar; while tracing: progress, aperture,
+ * click-to-focus, Save frame and Exit.
+ */
+export function PhotoPanel({
+  world,
+  canvas,
+  onChange,
+}: {
+  world: World | null;
+  canvas: HTMLCanvasElement | null;
+  /** Told when photo mode starts or ends, whoever ended it. */
+  onChange?(open: boolean): void;
+}) {
+  const [open, setOpenState] = useState(false);
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onChange?.(next);
+  };
   const [status, setStatus] = useState<Status>(null);
   const [alert, setAlert] = useState<string | null>(null);
   const [stop, setStop] = useState(DEFAULT_STOP);
@@ -84,19 +108,23 @@ export function PhotoPanel({ world, canvas }: { world: World | null; canvas: HTM
     }
   };
 
-  const progress =
-    status?.phase === 'tracing' ? `TRACING · ${Math.floor(status.samples)} / ${status.target}` : 'BUILDING SCENE…';
-
   return (
     <>
-      {!open && (
-        <button className="world-utility world-utility-photo" onClick={enter} aria-label="Open photo mode">
-          PHOTO
-        </button>
-      )}
+      <button
+        className={`world-trace-toggle${open ? ' active' : ''}`}
+        aria-pressed={open}
+        title="Progressive ray-traced photo mode. Motion pauses; drag to compose."
+        disabled={!world}
+        onClick={open ? close : enter}
+      >
+        <Sun size={13} />
+        Ray Tracing<small>{open ? 'ON' : 'OFF'}</small>
+      </button>
       {open && (
         <section className="photo-panel" aria-label="Photo mode">
-          <p className="photo-progress">{progress}</p>
+          <p className="trace-status" role="status" aria-live="polite">
+            {traceStatusText(status)}
+          </p>
           <label className="photo-aperture">
             <span>Aperture</span>
             <input

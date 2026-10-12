@@ -1,9 +1,29 @@
+@import './app/fonts.css';
+
+/* v1's effective stylesheet (docs/v1-ui-inventory.md, 4.2–4.5), with the quirks the M4 plan fixes marked. */
+
 :root {
   color-scheme: dark;
-  --ink: #e7ecdc;
-  --night: #0b1015;
-  --accent: #f99162;
+  color: #e5e8d8;
+  background: #0b1015;
+  font-family: 'IBM Plex Mono', monospace;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --ink: #e6e8e8;
+  --muted: #a6b0b5;
+  --dim: #6d7a84;
+  --ember: #e2b183;
+  --mint: #b8cabe;
+  --line: #b5c4cf28;
+  --display: 'Barlow Condensed', sans-serif;
 }
+.override {
+  --ember: #ff8869;
+  --mint: #ffad89;
+}
+
+/* ---------- base ---------- */
 * {
   box-sizing: border-box;
 }
@@ -12,104 +32,321 @@ body,
 #root {
   margin: 0;
   height: 100%;
-  background: var(--night);
-  color: var(--ink);
   overflow: hidden;
+  background: #0b1015;
 }
-body {
-  font-family: ui-monospace, 'IBM Plex Mono', monospace;
+h1,
+h2,
+h3,
+p {
+  margin: 0;
 }
-.world-shell {
-  position: fixed;
+button,
+input,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+input {
+  font: inherit;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+  color: inherit;
+  background: none;
+  border: 0;
+  transition:
+    color 0.18s,
+    background 0.18s,
+    transform 0.18s;
+}
+button:disabled {
+  cursor: default;
+}
+button:hover,
+a:hover {
+  color: var(--ember);
+}
+button:active {
+  transform: translateY(1px);
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button svg,
+a svg {
+  flex-shrink: 0;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+canvas:focus-visible {
+  outline: 2px solid var(--ember);
+  outline-offset: 5px;
+}
+.city-canvas canvas {
+  outline-offset: -4px;
+}
+kbd {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 2px;
+  padding: 2px 5px;
+  font: 10px 'IBM Plex Mono', monospace;
+}
+::selection {
+  color: #fff;
+  background: #f4ad8255;
+}
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: none;
+}
+::-webkit-scrollbar-thumb {
+  background: #7c8f7455;
+  border-radius: 3px;
+}
+
+/* ---------- shell ---------- */
+.world-shell.immersive-world {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: #08111a;
+}
+.world-vignette {
+  position: absolute;
   inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    linear-gradient(#0000 65%, #060e1824 81%, #060e18e6),
+    linear-gradient(#060e1861, #0000 15%);
+}
+.city-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 1.5s;
+}
+.is-ready .city-stage {
+  opacity: 1;
+}
+.blackout .city-stage {
+  opacity: 0.05;
+  transition: opacity 1.2s;
 }
 .city-canvas {
-  position: absolute;
-  inset: 0;
+  position: relative;
   width: 100%;
   height: 100%;
+}
+.city-canvas canvas {
   display: block;
+  width: 100%;
+  height: 100%;
   touch-action: none;
 }
-.world-utility {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  padding: 10px 14px;
-  font: inherit;
-  letter-spacing: 0.14em;
-  color: var(--ink);
-  background: rgba(11, 16, 21, 0.62);
-  border: 1px solid rgba(231, 236, 220, 0.18);
-  border-radius: 6px;
-  backdrop-filter: blur(10px);
-  cursor: pointer;
+/* Fixed v1 quirk: pixel vision is crisp, not a blurry upscale. */
+.pixelated .city-canvas canvas {
+  image-rendering: pixelated;
 }
-.postcard {
-  margin: 0;
-  position: fixed;
+.is-fallback .city-canvas {
+  display: none;
+}
+.fallback {
+  position: absolute;
   inset: 0;
+  margin: 0;
   display: grid;
-  place-items: center;
-}
-.postcard img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.postcard figcaption {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 16px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  background: rgba(11, 16, 21, 0.7);
-  border-radius: 6px;
-}
-.world-utility-walk {
-  right: 110px;
-}
-.world-hint {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
-  padding: 10px 16px;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink);
-  background: rgba(11, 16, 21, 0.62);
-  border: 1px solid rgba(231, 236, 220, 0.18);
-  border-radius: 6px;
-  backdrop-filter: blur(10px);
+  align-content: center;
   pointer-events: none;
 }
-.world-utility-photo {
-  right: 202px;
+.fallback img {
+  width: 100%;
+  max-height: 95%;
+  object-fit: contain;
 }
-.photo-panel {
+/* Fixed v1 quirk: the postcard caption sits above the dock instead of behind it. */
+.fallback figcaption {
+  position: absolute;
+  left: 50%;
+  bottom: 133px;
+  z-index: 3;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: var(--muted);
+  text-align: center;
+  font-size: 10px;
+}
+.boot-message {
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  color: var(--ember);
+  font-size: 9px;
+  letter-spacing: 1.8px;
+}
+.boot-block {
+  width: 8px;
+  height: 8px;
+  background: var(--ember);
+  animation: blink 0.6s infinite;
+}
+.status-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  background: var(--mint);
+  box-shadow: 0 0 8px #a5d8bd66;
+}
+
+/* ---------- top-left location ---------- */
+.world-location {
+  position: absolute;
+  top: 28px;
+  left: 30px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  color: #c9d5d5a8;
+  font-size: 8px;
+  letter-spacing: 1.6px;
+  text-shadow: 0 1px 8px #05101b;
+}
+.world-location .status-dot {
+  width: 4px;
+  height: 4px;
+  background: #b2cabc;
+  box-shadow: 0 0 9px #b2cabc33;
+}
+.world-sector {
+  margin-left: 6px;
+  padding-left: 15px;
+  border-left: 1px solid #b4c5cf35;
+  color: #b4c5cf63;
+  font-size: 7px;
+}
+
+/* ---------- top-right utilities ---------- */
+.world-utilities {
   position: absolute;
   top: 18px;
-  right: 18px;
+  right: 24px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: #07121b73;
+  border: 1px solid #b6c9d125;
+  border-radius: 4px;
+  backdrop-filter: blur(16px);
+}
+.world-utility {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 40px;
+  padding: 0;
+  border-radius: 2px;
+  color: #c0c9caba;
+}
+.world-utility:hover,
+.world-utility.active {
+  color: #e4bb8d;
+  background: #e4bb8d0d;
+}
+.world-utility:disabled {
+  opacity: 0.35;
+}
+.world-utility-divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: #b6c9d129;
+}
+.world-trace-toggle {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 11px;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #c0c9caba;
+  background: #07121b87;
+  border: 1px solid #b6c9d125;
+  border-radius: 3px;
+  backdrop-filter: blur(16px);
+}
+/* Fixed v1 quirk: the toggle turns amber on hover like every other control. */
+.world-trace-toggle:hover {
+  color: #e4bb8d;
+}
+.world-trace-toggle small {
+  margin-left: 2px;
+  font-size: 8px;
+  color: #8298a4;
+}
+.world-trace-toggle.active {
+  color: #e4bb8d;
+  border-color: #e4bb8d55;
+}
+.world-trace-toggle.active small {
+  color: #e4bb8d;
+}
+.world-trace-toggle:disabled {
+  opacity: 0.4;
+}
+.is-walking .world-trace-toggle {
+  top: calc(100% + 63px);
+}
+/* v2: photo mode's own controls hang under the toggle. */
+.photo-panel {
+  position: absolute;
+  top: calc(100% + 58px);
+  right: 0;
   display: grid;
   gap: 10px;
-  min-width: 240px;
-  padding: 14px 16px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  color: var(--ink);
-  background: rgba(11, 16, 21, 0.72);
-  border: 1px solid rgba(231, 236, 220, 0.18);
-  border-radius: 6px;
-  backdrop-filter: blur(10px);
+  width: 240px;
+  padding: 12px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #b6d0c6;
+  background: #08131be6;
+  border: 1px solid #b6c9d125;
 }
-.photo-panel p {
+.is-walking .photo-panel {
+  top: calc(100% + 112px);
+}
+.trace-status {
   margin: 0;
 }
 .photo-aperture {
@@ -117,9 +354,13 @@ body {
   grid-template-columns: auto 1fr auto;
   gap: 10px;
   align-items: center;
+  color: var(--muted);
+}
+.photo-aperture input {
+  accent-color: var(--ember);
 }
 .photo-hint {
-  opacity: 0.7;
+  color: var(--dim);
 }
 .photo-actions {
   display: flex;
@@ -128,26 +369,453 @@ body {
 .photo-actions button {
   flex: 1;
   padding: 8px 10px;
-  font: inherit;
-  letter-spacing: inherit;
-  color: var(--ink);
-  background: rgba(231, 236, 220, 0.08);
-  border: 1px solid rgba(231, 236, 220, 0.22);
-  border-radius: 4px;
-  cursor: pointer;
+  color: var(--ember);
+  border: 1px solid #b6c9d125;
 }
 .world-alert {
-  position: absolute;
-  bottom: 72px;
+  position: fixed;
   left: 50%;
+  bottom: 153px;
   transform: translateX(-50%);
+  z-index: 20;
   max-width: min(560px, calc(100vw - 32px));
   margin: 0;
-  padding: 10px 16px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #ffe9e3;
-  background: rgba(60, 14, 10, 0.78);
-  border: 1px solid rgba(255, 140, 120, 0.35);
-  border-radius: 6px;
+  padding: 15px 20px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #ffd9cc;
+  background: #2a1310f2;
+  border: 1px solid #ff886944;
+  box-shadow: 0 10px 40px #0006;
+  animation: reveal 0.25s;
+}
+
+/* ---------- guidance ---------- */
+.world-guidance {
+  position: absolute;
+  left: 50%;
+  bottom: 133px;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  max-width: calc(100% - 48px);
+  white-space: nowrap;
+  pointer-events: none;
+  color: #c2cece9e;
+  font-size: 7px;
+  letter-spacing: 1.2px;
+  text-shadow: 0 1px 10px #07101c;
+}
+.world-guidance svg {
+  color: #d5b591ae;
+}
+.world-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 133px;
+  transform: translateX(-50%);
+  z-index: 5;
+  margin: 0;
+  pointer-events: none;
+  color: #d4dedf;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 8px #04101a;
+}
+
+/* ---------- footer: credit + dock ---------- */
+.world-interface {
+  position: absolute;
+  left: 30px;
+  right: 24px;
+  bottom: 25px;
+  z-index: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 32px;
+  pointer-events: none;
+}
+.world-credit {
+  pointer-events: auto;
+  min-width: 0;
+}
+.world-credit-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 6px;
+  letter-spacing: 2px;
+  color: #9aadb5b3;
+}
+.world-credit h1 {
+  margin: 0;
+  font:
+    600 23px/1.1 'Barlow Condensed',
+    sans-serif;
+  letter-spacing: 0.6px;
+  color: #e0e6e4;
+  text-shadow: 0 1px 12px #08111b;
+}
+.world-credit h1 button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  letter-spacing: inherit;
+}
+.world-credit h1 svg {
+  color: #dab487;
+}
+.world-credit p {
+  margin-top: 7px;
+  font-size: 8px;
+  line-height: 1.8;
+  letter-spacing: 0.6px;
+  color: #b2c1c8b0;
+}
+.world-credit > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 7px;
+  line-height: 1.8;
+  letter-spacing: 0.2px;
+  color: #9cabb796;
+}
+.world-credit > a:hover {
+  color: #e2b183;
+}
+.world-dock {
+  display: flex;
+  align-items: stretch;
+  padding: 5px;
+  pointer-events: auto;
+  background: linear-gradient(135deg, #18232dd6, #08131dde);
+  border: 1px solid #becbd032;
+  border-radius: 5px;
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 12px 45px #03080e3d,
+    inset 0 1px #d2ded308;
+}
+.world-dock > button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 11px 17px;
+  border-radius: 2px;
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.25px;
+  color: #b7c3c9;
+}
+.world-dock > button + button {
+  border-left: 1px solid #bacbd21c;
+}
+.world-dock > button > span {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.world-dock small {
+  font-size: 7px;
+  font-weight: 400;
+  color: #8298a4;
+}
+.world-dock > button:hover,
+.world-dock > button.active,
+.world-dock > button.discoveries-complete {
+  color: #e5bd91;
+  background: #e4bb8d08;
+}
+.world-dock > button.active::after {
+  content: '';
+  position: absolute;
+  left: 17px;
+  right: 17px;
+  bottom: 5px;
+  height: 1px;
+  background: #e5bd9170;
+}
+.world-dock button:disabled {
+  opacity: 0.4;
+}
+
+/* ---------- toast & blackout ---------- */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 153px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(90%, 650px);
+  pointer-events: none;
+  text-align: left;
+  color: var(--mint);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.toast:not(:empty) {
+  padding: 15px 20px;
+  background: #102322f5;
+  border: 1px solid #9cbaa344;
+  box-shadow: 0 10px 40px #0006;
+  animation: reveal 0.25s;
+}
+.toast svg {
+  flex-shrink: 0;
+}
+.blackout-message {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  pointer-events: none;
+  background: #060b11b5;
+}
+.blackout-message > span {
+  padding: 0 24px;
+  text-align: center;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(25px, 5vw, 65px);
+  letter-spacing: 3px;
+  color: var(--ember);
+}
+.blackout-message small {
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
+
+/* ---------- keyframes ---------- */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    translate: 0 7px;
+  }
+  to {
+    opacity: 1;
+    translate: 0;
+  }
+}
+@keyframes blink {
+  0%,
+  65% {
+    opacity: 1;
+  }
+  66%,
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---------- walk mode hides the orbit chrome ---------- */
+.is-walking .world-interface,
+.is-walking .world-location,
+.is-walking .world-guidance {
+  display: none;
+}
+
+/* ---------- breakpoints ---------- */
+@media (max-width: 1100px) {
+  .world-credit h1 {
+    font-size: 20px;
+  }
+  .world-dock > button {
+    gap: 8px;
+    padding: 10px 13px;
+    font-size: 11px;
+  }
+  .world-dock small {
+    font-size: 6px;
+  }
+}
+@media (max-width: 900px) {
+  .toast {
+    min-width: 250px;
+    max-width: 88%;
+    font-size: 9px;
+  }
+}
+@media (max-width: 800px) {
+  .world-vignette {
+    background:
+      linear-gradient(#0000 63%, #06111b75 87%, #050d17f2),
+      linear-gradient(#06101b55, #0000 16%);
+  }
+  .world-interface {
+    left: 18px;
+    right: 18px;
+    bottom: max(15px, env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: center;
+    gap: 17px;
+  }
+  .world-credit {
+    align-self: flex-start;
+  }
+  .world-credit-label {
+    margin-bottom: 5px;
+    font-size: 5px;
+    letter-spacing: 1.5px;
+  }
+  .world-credit h1 {
+    font-size: 21px;
+    letter-spacing: 0.5px;
+  }
+  .world-credit p {
+    margin-top: 4px;
+    font-size: 7px;
+  }
+  .world-credit > a {
+    font-size: 6px;
+  }
+  .world-dock {
+    width: 100%;
+    max-width: 520px;
+    justify-content: space-between;
+    padding: 4px;
+  }
+  .world-dock > button {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-height: 60px;
+    padding: 9px 5px;
+    font-size: 11px;
+  }
+  .world-dock > button > svg {
+    width: 17px;
+    height: 17px;
+  }
+  .world-dock > button > span {
+    gap: 5px;
+  }
+  .world-dock small {
+    display: none;
+  }
+  .world-dock > button.active::after {
+    left: 24%;
+    right: 24%;
+    bottom: 3px;
+  }
+  .world-location {
+    top: 25px;
+    left: 20px;
+    gap: 7px;
+    font-size: 6px;
+    letter-spacing: 1px;
+  }
+  .world-sector {
+    display: none;
+  }
+  .world-utilities {
+    top: 13px;
+    right: 15px;
+    gap: 0;
+    padding: 3px;
+  }
+  .world-utility {
+    width: 40px;
+    height: 40px;
+  }
+  .world-utility svg {
+    width: 15px;
+    height: 15px;
+  }
+  .world-utility-divider {
+    margin: 0 2px;
+  }
+  .world-trace-toggle {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+  .world-guidance,
+  .world-hint,
+  .fallback figcaption {
+    bottom: 198px;
+    max-width: calc(100% - 36px);
+    font-size: 6px;
+    letter-spacing: 0.6px;
+  }
+  .toast,
+  .world-alert {
+    bottom: 210px;
+    font-size: 9px;
+  }
+}
+@media (max-width: 600px) {
+  .world-location {
+    display: none;
+  }
+}
+@media (max-width: 390px) {
+  .world-credit h1 {
+    font-size: 18px;
+  }
+  .world-credit h1 button {
+    gap: 7px;
+  }
+  .world-credit h1 svg {
+    width: 13px;
+    height: 13px;
+  }
+  .world-dock > button > span {
+    gap: 3px;
+  }
+}
+@media (max-height: 560px) and (min-width: 650px) {
+  .world-interface {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 20px;
+    bottom: 15px;
+  }
+  .world-credit h1 {
+    font-size: 17px;
+  }
+  .world-credit > a {
+    font-size: 6px;
+  }
+  .world-dock {
+    width: auto;
+  }
+  .world-dock > button {
+    flex-direction: row;
+    min-height: 42px;
+    padding: 8px 11px;
+  }
+  .world-dock small {
+    display: none;
+  }
+  .world-guidance,
+  .world-hint,
+  .fallback figcaption {
+    bottom: 105px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  :before,
+  :after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
 }

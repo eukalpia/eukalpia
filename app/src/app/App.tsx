@@ -3,6 +3,11 @@ import { createWorld, type QualityTier, type TimeOfDay, type World } from '../en
 import type { DebugFlag, ShotName } from '../engine/debug';
 import { DISTRICTS } from '../content/districts';
 import { Boot, Credit, Dock, greetConsole, Guidance, guidanceText, Location, Toast, Utilities } from './chrome';
+import { Inspector } from './Inspector';
+import { BuilderPanel } from './panels/Builder';
+import { DiscoveriesPanel } from './panels/Discoveries';
+import { HelpPanel } from './panels/Help';
+import { ProjectsPanel } from './panels/Projects';
 import { PhotoPanel } from './PhotoPanel';
 import type { Sector } from './url';
 
@@ -28,6 +33,8 @@ export function Postcard() {
 
 const TOAST_MS = 5500;
 
+type PanelId = 'districts' | 'signals' | 'author' | 'help';
+
 export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, sector = 'overview' }: AppProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
@@ -38,6 +45,8 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   const [paused, setPaused] = useState(reducedMotion);
   const [sound, setSound] = useState(false);
   const [tracing, setTracing] = useState(false);
+  const [panel, setPanel] = useState<PanelId | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
   // The world may still be loading when the visitor toggles Day/Night; apply the latest choice once it exists.
   const timeRef = useRef(time);
   timeRef.current = time;
@@ -112,6 +121,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   // Postcard mode is as ready as the page will get: the boot line goes, the interface stays.
   const ready = world !== null || postcard;
   const tour = !reducedMotion && !shot && sector === 'overview' && !walking;
+  const selectedDistrict = DISTRICTS.find(d => d.id === selected) ?? null;
   const classes = [
     'world-shell immersive-world is-exploring',
     walking && 'is-walking',
@@ -150,20 +160,46 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       </Utilities>
       <Guidance text={guidanceText({ tracing, hover: null, fly: false, tour })} hovered={false} />
       <footer className="world-interface">
-        <Credit onBuilder={() => {}} />
+        <Credit onBuilder={() => setPanel('author')} />
         <Dock
           walkDisabled={world === null}
-          orbitActive={!walking}
+          orbitActive={!walking && panel === null}
           districts={DISTRICTS.length}
           found={0}
           onOrbit={toOrbit}
           onWalk={enterWalk}
-          onProjects={() => {}}
-          onDiscoveries={() => {}}
-          onHelp={() => {}}
+          onProjects={() => setPanel('districts')}
+          onDiscoveries={() => setPanel('signals')}
+          onHelp={() => setPanel('help')}
         />
       </footer>
+      {selectedDistrict && <Inspector district={selectedDistrict} onClose={() => setSelected(null)} />}
       <Toast text={toast} />
+      {panel === 'districts' && (
+        <ProjectsPanel
+          onSelect={id => {
+            setSelected(id);
+            setPanel(null);
+          }}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel === 'signals' && <DiscoveriesPanel found={[]} onClose={() => setPanel(null)} />}
+      {panel === 'author' && <BuilderPanel onMaintenance={() => setPanel(null)} onClose={() => setPanel(null)} />}
+      {panel === 'help' && (
+        <HelpPanel
+          sector={sector}
+          pixelated={false}
+          fly={false}
+          actions={{
+            tour: () => setPanel(null),
+            street: () => setPanel(null),
+            pixel: () => {},
+            fly: () => setPanel(null),
+          }}
+          onClose={() => setPanel(null)}
+        />
+      )}
       {liftHint && <p className="world-hint">{liftHint}</p>}
     </main>
   );

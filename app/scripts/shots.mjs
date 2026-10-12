@@ -100,7 +100,9 @@ try {
     const button = await page.getByRole('button', { name: /^Ray Tracing/ }).isVisible();
     if (!alert.includes('EXT_color_buffer_float')) failures.push(`no-float: no refusal message (got "${alert}")`);
     else if (!button || !still)
-      failures.push(`no-float: the normal view did not come back (Ray Tracing toggle ${button}, frames advancing ${still})`);
+      failures.push(
+        `no-float: the normal view did not come back (Ray Tracing toggle ${button}, frames advancing ${still})`,
+      );
     else console.log(`no-float: "${alert}"`);
     for (const e of errors) failures.push(`no-float: ${e}`);
     await page.close();

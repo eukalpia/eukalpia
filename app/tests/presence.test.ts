@@ -22,7 +22,7 @@ function fakeModel(): CharacterModel {
 
 test('contact shadows sit under each foot, just above the ground', () => {
   const model = fakeModel();
-  const presence = createPresence(model, { tier: 'high' });
+  const presence = createPresence(model);
   const camera = new PerspectiveCamera();
   camera.position.set(10, 3, 0);
   presence.update(camera, false);
@@ -37,7 +37,7 @@ test('contact shadows sit under each foot, just above the ground', () => {
 
 test('a lifted foot leaves a fainter shadow', () => {
   const model = fakeModel();
-  const presence = createPresence(model, { tier: 'high' });
+  const presence = createPresence(model);
   const camera = new PerspectiveCamera();
   presence.update(camera, false);
   const planted = presence.opacity(0);
@@ -47,21 +47,18 @@ test('a lifted foot leaves a fainter shadow', () => {
   presence.dispose();
 });
 
-test('the close-up light only shadows on High, and stays on at night', () => {
+test('the close-up light stays on at night', () => {
   const camera = new PerspectiveCamera();
   camera.position.set(10, 3.5, 0);
-  for (const tier of ['high', 'low'] as const) {
-    const presence = createPresence(fakeModel(), { tier });
-    presence.update(camera, true);
-    const light = presence.group.children.find(o => (o as SpotLight).isSpotLight) as SpotLight;
-    expect(light.castShadow).toBe(tier === 'high');
-    expect(light.intensity).toBeGreaterThan(0);
-    presence.dispose();
-  }
+  const presence = createPresence(fakeModel());
+  presence.update(camera, true);
+  const light = presence.group.children.find(o => (o as SpotLight).isSpotLight) as SpotLight;
+  expect(light.intensity).toBeGreaterThan(0);
+  presence.dispose();
 });
 
 test('the light fades out when the camera is far away', () => {
-  const presence = createPresence(fakeModel(), { tier: 'high' });
+  const presence = createPresence(fakeModel());
   const camera = new PerspectiveCamera();
   camera.position.copy(new Vector3(10, 400, 600));
   presence.update(camera, false);
@@ -70,12 +67,12 @@ test('the light fades out when the camera is far away', () => {
   presence.dispose();
 });
 
-test('the close-up light shadows only UR-01 (self-shadowing), not the whole street', () => {
-  const model = fakeModel();
-  const presence = createPresence(model, { tier: 'high' });
-  const light = presence.group.children.find(o => (o as SpotLight).isSpotLight) as SpotLight;
-  const street = new Group();
-  expect(model.root.children.every(o => light.shadow.camera.layers.test(o.layers))).toBe(true);
-  expect(light.shadow.camera.layers.test(street.layers)).toBe(false);
+test('the close-up lights cast no shadows: three would draw every caster in their cone', () => {
+  // A shadow-casting spot light here drew whole instanced streets (all trees, all parked cars) into
+  // its map each frame; UR-01's self-shadowing comes from the sun's cascades instead.
+  const presence = createPresence(fakeModel());
+  const lights = presence.group.children.filter(o => (o as SpotLight).isSpotLight) as SpotLight[];
+  expect(lights.length).toBeGreaterThanOrEqual(2);
+  for (const light of lights) expect(light.castShadow).toBe(false);
   presence.dispose();
 });

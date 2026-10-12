@@ -157,7 +157,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       for (const m of model.skinned) sun.setupMaterial(m.material as MeshStandardMaterial);
       scene.add(model.root);
       character = model;
-      presence = createPresence(model, { tier: opts.quality });
+      presence = createPresence(model);
       scene.add(presence.group);
       debug.character = () => measureBindPose(model);
       walk = createWalk({

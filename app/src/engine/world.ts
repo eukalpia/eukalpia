@@ -1,15 +1,19 @@
 import {
   AgXToneMapping,
-  BoxGeometry,
+  CircleGeometry,
   Clock,
   Mesh,
   MeshStandardMaterial,
   PCFShadowMap,
   PerspectiveCamera,
-  PlaneGeometry,
   Scene,
+  Vector3,
   WebGLRenderer,
+  type Texture,
 } from 'three';
+import { DISTRICTS } from '../content/districts';
+import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../world/city';
+import { DEFAULT_SEED, createLayout } from '../world/layout';
 import { createOrbit } from './camera/orbit';
 import { installDebug, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
@@ -60,16 +64,21 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const environment = createEnvironment(renderer);
   const sun = createSun(scene, camera, opts.quality);
 
-  // Temporary stand-in geometry until the city is generated.
-  const groundMaterial = new MeshStandardMaterial({ color: 0x8a8d90, roughness: 0.9 });
-  const blockMaterial = new MeshStandardMaterial({ color: 0xb8b2a6, roughness: 0.7 });
+  const textures = await loadWorldTextures(renderer, import.meta.env.BASE_URL);
+  const layout = createLayout(DEFAULT_SEED, DISTRICTS);
+  const city = createCityMeshes(layout, DISTRICTS, { tier: opts.quality, sun, textures });
+  scene.add(city.group);
+
+  // Temporary ground until the islands are generated.
+  const groundMaterial = new MeshStandardMaterial({ color: 0x6f7275, roughness: 0.9 });
   sun.setupMaterial(groundMaterial);
-  sun.setupMaterial(blockMaterial);
-  const ground = new Mesh(new PlaneGeometry(600, 600).rotateX(-Math.PI / 2), groundMaterial);
+  const ground = new Mesh(new CircleGeometry(260, 96).rotateX(-Math.PI / 2), groundMaterial);
   ground.receiveShadow = true;
-  const block = new Mesh(new BoxGeometry(40, 40, 40).translate(0, 20, 0), blockMaterial);
-  block.castShadow = block.receiveShadow = true;
-  scene.add(ground, block);
+  scene.add(ground);
+
+  // Glass reflects a capture of the city taken from the ring-avenue crossing next to the monolith.
+  const reflectionPoint = new Vector3(56, 60, 56);
+  let reflection: { texture: Texture; dispose(): void } | null = null;
 
   function setTime(time: TimeOfDay) {
     const preset = PRESETS[time];
@@ -78,6 +87,13 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     scene.environment = environment.update(sky.mesh);
     scene.environmentIntensity = preset.envIntensity;
     renderer.toneMappingExposure = preset.exposure;
+    city.setNight(time === 'night', preset.windowLitRatio);
+    sun.update();
+    city.facade.envMap = null;
+    reflection?.dispose();
+    reflection = captureCityReflection(renderer, scene, reflectionPoint);
+    city.facade.envMap = reflection.texture;
+    city.facade.envMapIntensity = preset.envIntensity;
   }
   setTime(opts.time);
 
@@ -98,6 +114,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     const dt = Math.min(rawDt, 0.1);
     orbit.update(dt);
     sky.update(clock.elapsedTime);
+    city.update(dt);
     sun.update();
     renderer.info.reset();
     renderer.render(scene, camera);
@@ -133,6 +150,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       orbit.dispose();
       sun.dispose();
       sky.dispose();
+      city.dispose();
+      reflection?.dispose();
       environment.dispose();
       renderer.dispose();
     },

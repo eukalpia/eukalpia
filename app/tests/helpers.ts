@@ -32,3 +32,19 @@ export function fakeDom() {
   });
   return el as unknown as HTMLElement & ReturnType<typeof fakeTarget>;
 }
+
+import { ShaderLib, Texture, UniformsUtils } from 'three';
+import type { TextureSet } from '../src/world/buildings/facadeMaterial';
+
+export function fakeShader() {
+  return {
+    vertexShader: ShaderLib.physical.vertexShader,
+    fragmentShader: ShaderLib.physical.fragmentShader,
+    uniforms: UniformsUtils.clone(ShaderLib.physical.uniforms),
+  } as unknown as Parameters<NonNullable<import('three').Material['onBeforeCompile']>>[0];
+}
+
+export function fakeTextures(): { concrete: TextureSet; steel: TextureSet; brick: TextureSet } {
+  const set = (): TextureSet => ({ map: new Texture(), normalMap: new Texture(), armMap: new Texture() });
+  return { concrete: set(), steel: set(), brick: set() };
+}

@@ -8,7 +8,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
-import { checkCover, coverSvg } from './cover.mjs';
+import { checkCover, coverSvg, MAX_COVER_BYTES } from './cover.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -19,6 +19,8 @@ const seconds = Number(flag('seconds') ?? 7.5);
 const only = flag('only');
 const base = `http://localhost:${port}/eukalpia/`;
 const samples = join(root, 'test-results', 'cover');
+/** Some headroom under the limit CI enforces. */
+const COVER_TARGET_BYTES = MAX_COVER_BYTES * 0.95;
 
 const TARGET = [0, 60, 0];
 /** A point on a sphere around the city's centre: azimuth from +z towards +x, polar from straight up. */
@@ -86,23 +88,53 @@ try {
     const page = await openCity(browser, 960, 540);
     const dt = seconds / frames;
     // A few frames to settle exposure and shadows at the first pose.
-    for (let i = 0; i < 4; i++) await capture(page, { dt, ...coverPose(0), type: 'image/webp', quality: 0.8 });
-    const shots = [];
+    for (let i = 0; i < 4; i++) await capture(page, { dt, ...coverPose(0), type: 'image/png' });
+    // Frames are kept lossless, then encoded at the best WebP quality that keeps the cover within budget.
     const started = Date.now();
     for (let i = 0; i < frames; i++) {
-      const url = await capture(page, { dt, ...coverPose(i / frames), type: 'image/webp', quality: 0.8 });
-      shots.push({ mime: 'image/webp', base64: base64Of(url) });
-      if ([0, frames >> 1, frames - 1].includes(i))
-        await writeFile(join(samples, `frame-${i}.webp`), Buffer.from(shots[i].base64, 'base64'));
+      // Kept in the page: 90 lossless frames are too heavy to ship back and forth.
+      await page.evaluate(
+        async r => {
+          (window.__coverFrames ??= []).push(await window.__eukalpia.capture(r));
+        },
+        { dt, ...coverPose(i / frames), type: 'image/png' },
+      );
       if (i % 10 === 9) console.log(`cover: ${i + 1}/${frames} frames, ${Math.round((Date.now() - started) / 1000)}s`);
     }
-    const svg = coverSvg(shots, {
-      width: 960,
-      height: 540,
-      seconds,
-      title: 'A floating 3D city',
-      description: `${frames} rendered views of the interactive city. Follow the surrounding link to enter the live world. Reduced motion and static viewers show the first captured frame.`,
-    });
+    let svg = '';
+    for (const quality of [0.8, 0.74, 0.68, 0.62, 0.56, 0.5]) {
+      const webps = await page.evaluate(async quality => {
+        const canvas = document.createElement('canvas');
+        const g = canvas.getContext('2d');
+        const out = [];
+        for (const src of window.__coverFrames) {
+          const img = new Image();
+          img.src = src;
+          await img.decode();
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          g.drawImage(img, 0, 0);
+          out.push(canvas.toDataURL('image/webp', quality));
+        }
+        return out;
+      }, quality);
+      svg = coverSvg(
+        webps.map(url => ({ mime: 'image/webp', base64: base64Of(url) })),
+        {
+          width: 960,
+          height: 540,
+          seconds,
+          title: 'A floating 3D city',
+          description: `${frames} rendered views of the interactive city. Follow the surrounding link to enter the live world. Reduced motion and static viewers show the first captured frame.`,
+        },
+      );
+      console.log(`cover: WebP quality ${quality} → ${(Buffer.byteLength(svg) / 1048576).toFixed(2)} MB`);
+      if (Buffer.byteLength(svg) <= COVER_TARGET_BYTES) {
+        for (const i of [0, frames >> 1, frames - 1])
+          await writeFile(join(samples, `frame-${i}.webp`), Buffer.from(base64Of(webps[i]), 'base64'));
+        break;
+      }
+    }
     const problems = checkCover(svg);
     if (problems.length) throw new Error(`the cover would fail CI: ${problems.join('; ')}`);
     const file = join(root, '..', 'public', 'profile-cover.svg');

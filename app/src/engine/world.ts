@@ -1,10 +1,25 @@
-import { Clock, Color, PerspectiveCamera, Scene, WebGLRenderer } from 'three';
-import { installDebug, type DebugHandle, type ShotName } from './debug';
+import {
+  AgXToneMapping,
+  BoxGeometry,
+  Clock,
+  Mesh,
+  MeshStandardMaterial,
+  PCFShadowMap,
+  PerspectiveCamera,
+  PlaneGeometry,
+  Scene,
+  WebGLRenderer,
+} from 'three';
 import { createOrbit } from './camera/orbit';
+import { installDebug, type DebugHandle, type ShotName } from './debug';
+import { createEnvironment } from './lighting/environment';
+import { createSky } from './lighting/sky';
+import { createSun } from './lighting/sun';
+import { PRESETS, type TimeOfDay } from './lighting/timeOfDay';
 import { AdaptiveResolution, BUDGETS, TIER_SETTINGS, type QualityTier } from './quality';
 
 export type { QualityTier } from './quality';
-export type TimeOfDay = 'day' | 'night';
+export type { TimeOfDay } from './lighting/timeOfDay';
 
 export interface WorldOptions {
   quality: QualityTier;
@@ -25,6 +40,9 @@ export interface World {
 export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions): Promise<World> {
   const renderer = new WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.info.autoReset = false;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFShadowMap;
+  renderer.toneMapping = AgXToneMapping;
   const settings = TIER_SETTINGS[opts.quality];
   const budget = BUDGETS[opts.quality];
   // Shots render at a fixed DPR of 1: the software rasterizer would otherwise trip the adaptive scaler.
@@ -33,10 +51,35 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   const clock = new Clock();
 
   const scene = new Scene();
-  scene.background = new Color(opts.time === 'night' ? 0x070b12 : 0x9fbad3);
   const camera = new PerspectiveCamera(40, 1, 1, 12000);
   const orbit = createOrbit(camera, canvas, { reducedMotion: opts.reducedMotion || !!opts.shot });
   if (opts.shot) orbit.applyPreset(opts.shot);
+
+  const sky = createSky();
+  scene.add(sky.mesh);
+  const environment = createEnvironment(renderer);
+  const sun = createSun(scene, camera, opts.quality);
+
+  // Temporary stand-in geometry until the city is generated.
+  const groundMaterial = new MeshStandardMaterial({ color: 0x8a8d90, roughness: 0.9 });
+  const blockMaterial = new MeshStandardMaterial({ color: 0xb8b2a6, roughness: 0.7 });
+  sun.setupMaterial(groundMaterial);
+  sun.setupMaterial(blockMaterial);
+  const ground = new Mesh(new PlaneGeometry(600, 600).rotateX(-Math.PI / 2), groundMaterial);
+  ground.receiveShadow = true;
+  const block = new Mesh(new BoxGeometry(40, 40, 40).translate(0, 20, 0), blockMaterial);
+  block.castShadow = block.receiveShadow = true;
+  scene.add(ground, block);
+
+  function setTime(time: TimeOfDay) {
+    const preset = PRESETS[time];
+    sky.setPreset(preset, time);
+    sun.setPreset(preset);
+    scene.environment = environment.update(sky.mesh);
+    scene.environmentIntensity = preset.envIntensity;
+    renderer.toneMappingExposure = preset.exposure;
+  }
+  setTime(opts.time);
 
   const debug: DebugHandle = installDebug(() => {
     const { calls, triangles } = renderer.info.render;
@@ -54,6 +97,8 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     const rawDt = clock.getDelta();
     const dt = Math.min(rawDt, 0.1);
     orbit.update(dt);
+    sky.update(clock.elapsedTime);
+    sun.update();
     renderer.info.reset();
     renderer.render(scene, camera);
     debug.frame += 1;
@@ -72,6 +117,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     renderer.setSize(width, height, false);
     camera.aspect = width / Math.max(1, height);
     camera.updateProjectionMatrix();
+    sun.csm.updateFrustums();
   }
   resize(canvas.clientWidth || window.innerWidth, canvas.clientHeight || window.innerHeight);
 
@@ -80,13 +126,14 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     scene,
     camera,
     resize,
-    setTime(time) {
-      scene.background = new Color(time === 'night' ? 0x070b12 : 0x9fbad3);
-    },
+    setTime,
     dispose() {
       document.removeEventListener('visibilitychange', syncLoop);
-      orbit.dispose();
       renderer.setAnimationLoop(null);
+      orbit.dispose();
+      sun.dispose();
+      sky.dispose();
+      environment.dispose();
       renderer.dispose();
     },
   };

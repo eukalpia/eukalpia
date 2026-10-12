@@ -38,11 +38,13 @@ export function detectTier(info: DeviceInfo): QualityTier {
 }
 
 const SLOW_FRAME_MS = 22;
-const FAST_FRAME_MS = 14;
+// 18 ms so that a vsync-locked 60 Hz display (16.7 ms) counts as fast.
+const FAST_FRAME_MS = 18;
 const SLOW_HOLD_S = 1;
 const FAST_HOLD_S = 3;
 const STEP = 0.15;
 const MIN_DPR = 0.6;
+const SLOW_CEILING_S = 20;
 
 /** Lowers the pixel ratio while frames are slow and restores it once they are fast again. */
 export class AdaptiveResolution {
@@ -50,6 +52,9 @@ export class AdaptiveResolution {
   private slowFor = 0;
   private fastFor = 0;
   private dpr: number;
+  /** After a slow spell, DPR stays below the slow level for a while so it does not oscillate. */
+  private ceiling = Infinity;
+  private ceilingFor = 0;
 
   constructor(private readonly maxDpr: number) {
     this.dpr = maxDpr;
@@ -57,12 +62,18 @@ export class AdaptiveResolution {
 
   update(frameMs: number, dtSec: number): number | null {
     this.ema += (frameMs - this.ema) * 0.1;
+    if (this.ceiling !== Infinity && (this.ceilingFor -= dtSec) <= 0) this.ceiling = Infinity;
     this.slowFor = this.ema > SLOW_FRAME_MS ? this.slowFor + dtSec : 0;
     this.fastFor = this.ema < FAST_FRAME_MS ? this.fastFor + dtSec : 0;
 
     let next = this.dpr;
-    if (this.slowFor >= SLOW_HOLD_S) next = Math.max(MIN_DPR, this.dpr - STEP);
-    else if (this.fastFor >= FAST_HOLD_S) next = Math.min(this.maxDpr, this.dpr + STEP);
+    if (this.slowFor >= SLOW_HOLD_S) {
+      next = Math.max(MIN_DPR, this.dpr - STEP);
+      this.ceiling = next;
+      this.ceilingFor = SLOW_CEILING_S;
+    } else if (this.fastFor >= FAST_HOLD_S) {
+      next = Math.min(this.maxDpr, this.ceiling, this.dpr + STEP);
+    }
     if (Math.abs(next - this.dpr) < 1e-9) return null;
 
     this.dpr = Math.round(next * 100) / 100;

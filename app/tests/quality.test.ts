@@ -29,7 +29,7 @@ test('fast frames raise DPR back to max', () => {
   let dpr = 1.5;
   for (let i = 0; i < 400; i++) { const r = a.update(40, 1 / 25); if (r !== null) dpr = r; }
   expect(dpr).toBeLessThan(1.5);
-  for (let i = 0; i < 4000; i++) { const r = a.update(8, 1 / 120); if (r !== null) dpr = r; }
+  for (let i = 0; i < 8000; i++) { const r = a.update(8, 1 / 120); if (r !== null) dpr = r; }
   expect(dpr).toBeCloseTo(1.5);
 });
 
@@ -48,4 +48,22 @@ test('low tier uses 2D cloud layers and no AO', () => {
   expect(TIER_SETTINGS.low.cloudSteps).toBe(0);
   expect(TIER_SETTINGS.low.ao).toBe('off');
   expect(TIER_SETTINGS.high.csmCascades).toBe(4);
+});
+
+test('vsync-locked 60 Hz frames count as fast', () => {
+  const a = new AdaptiveResolution(1.5);
+  let dpr = 1.5;
+  for (let i = 0; i < 400; i++) { const r = a.update(40, 1 / 25); if (r !== null) dpr = r; }
+  for (let i = 0; i < 60 * 40; i++) { const r = a.update(16.7, 1 / 60); if (r !== null) dpr = r; }
+  expect(dpr).toBeCloseTo(1.5);
+});
+
+test('does not climb back above a slow DPR for 20 s', () => {
+  const a = new AdaptiveResolution(1.5);
+  let dpr = 1.5;
+  for (let i = 0; i < 30; i++) { const r = a.update(40, 1 / 25); if (r !== null) dpr = r; }
+  expect(dpr).toBeCloseTo(1.35);
+  let maxSeen = dpr;
+  for (let i = 0; i < 60 * 15; i++) { const r = a.update(16.7, 1 / 60); if (r !== null) { dpr = r; maxSeen = Math.max(maxSeen, r); } }
+  expect(maxSeen).toBeCloseTo(1.35);
 });

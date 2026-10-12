@@ -50,13 +50,14 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   });
 
   function frame() {
-    const dt = Math.min(clock.getDelta(), 0.1);
-    const started = performance.now();
+    const rawDt = clock.getDelta();
+    const dt = Math.min(rawDt, 0.1);
     renderer.info.reset();
     renderer.render(scene, camera);
     debug.frame += 1;
     if (debug.frame >= 2) debug.ready = true;
-    const nextDpr = adaptive?.update(performance.now() - started, dt);
+    // Frame time is the real interval between frames, so GPU-bound slowness is included.
+    const nextDpr = adaptive?.update(rawDt * 1000, dt);
     if (nextDpr) renderer.setPixelRatio(nextDpr);
   }
 

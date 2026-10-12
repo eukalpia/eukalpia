@@ -1,5 +1,6 @@
 import {
   AgXToneMapping,
+  Color,
   Timer,
   MeshStandardMaterial,
   NoToneMapping,
@@ -24,6 +25,8 @@ import { createWalk, type Walk } from '../character/walk';
 import type { Sector } from '../app/url';
 import { buildCollisionWorld } from '../world/collision';
 import { createLift, liftColliders, planLift, type LiftStatus } from '../world/lift';
+import { createPhotoSession, type PhotoStatus } from '../phototrace/session';
+import type { PhotoResult } from '../phototrace/support';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
 import { createSky } from './lighting/sky';
@@ -53,6 +56,13 @@ export interface World {
   mode(): WorldMode;
   /** The LMS lift as seen from where UR-01 stands; null while not walking. */
   liftStatus(): LiftStatus | null;
+  photo: {
+    enter(): Promise<PhotoResult>;
+    exit(): void;
+    status(): PhotoStatus | null;
+    /** Called with a message when photo mode ends on its own (e.g. a lost graphics context). */
+    onError(fn: (message: string) => void): void;
+  };
   resize(width: number, height: number): void;
   dispose(): void;
   renderer: WebGLRenderer;
@@ -231,6 +241,44 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
   }
   setTime(opts.time);
 
+  // Photo mode: the path tracer and the scene baker load on first use, in their own chunk.
+  let photoModule: typeof import('../phototrace/lazy') | null = null;
+  let photoActive = false;
+  const photoErrors: ((message: string) => void)[] = [];
+  const photo = createPhotoSession({
+    renderer,
+    camera,
+    setInput: texture => post.setInput(texture),
+    loadTracer: async () => {
+      photoModule ??= await import('../phototrace/lazy');
+      return photoModule.createTracer(renderer);
+    },
+    buildScene: () => {
+      const preset = PRESETS[currentTime];
+      const sources = [city.group, terrain.group, clutter.group, traffic.group, lift.group];
+      if (character) sources.push(character.root);
+      return photoModule!.buildPhotoScene(sources, {
+        night: currentTime === 'night',
+        litRatio: preset.windowLitRatio,
+        layout,
+        camera,
+        lampLights: 24,
+        lampHeads,
+        sun: { direction: sunDir.clone(), color: new Color(preset.sunColor), intensity: preset.sunIntensity },
+        textures: { rock: textures.rock.map },
+      });
+    },
+    environment: () => photoModule!.skyToEquirect(renderer, sky.mesh),
+    canWorker: () => typeof Worker !== 'undefined',
+    onActive: active => {
+      photoActive = active;
+      // Walking freezes while tracing; the orbit camera still moves (and restarts accumulation).
+      walk?.input.clear();
+      if (active) orbit.stopTour();
+    },
+    onError: message => photoErrors.forEach(fn => fn(message)),
+  });
+
   const debug: DebugHandle = installDebug(() => {
     const { calls, triangles } = renderer.info.render;
     return {
@@ -243,12 +291,17 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     };
   });
 
+  debug.photo = { enter: () => photo.enter(), status: () => photo.status(), triangles: () => photo.triangles };
+
   function frame(timestamp?: number) {
     timer.update(timestamp);
     const rawDt = timer.getDelta();
     const dt = Math.min(rawDt, 0.1);
-    lift.update(dt, walk?.active ? walk.controller : undefined);
-    if (walk?.active) walk.update(dt);
+    const street = photoActive ? 0 : dt;
+    lift.update(street, walk?.active ? walk.controller : undefined);
+    if (photoActive) {
+      if (!walk?.active) orbit.update(dt);
+    } else if (walk?.active) walk.update(dt);
     else {
       orbit.update(dt);
       walk?.idle(dt, flags.has('walkcycle') ? 1.6 : 0);
@@ -257,11 +310,13 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     city.update(dt);
     post.clouds.update(timer.getElapsed());
     terrain.update(timer.getElapsed());
-    streetClock += dt;
-    traffic.update(dt, streetClock);
+    // The traced scene is a still: traffic and signals pause with it.
+    streetClock += street;
+    traffic.update(street, streetClock);
     clutter.update(streetClock);
     updateStreetLights(currentTime === 'night');
     sun.update();
+    photo.frame();
     renderer.info.reset();
     if (flags.has('nopost')) {
       renderer.toneMapping = AgXToneMapping;
@@ -304,6 +359,12 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     setMode,
     mode: () => mode,
     liftStatus: () => (walk?.active ? lift.status(walk.controller.position) : null),
+    photo: {
+      enter: () => photo.enter(),
+      exit: () => photo.exit(),
+      status: () => photo.status(),
+      onError: fn => void photoErrors.push(fn),
+    },
     dispose() {
       disposed = true;
       walk?.dispose();
@@ -318,6 +379,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       city.dispose();
       terrain.dispose();
       traffic.dispose();
+      photo.exit();
       clutter.dispose();
       lift.dispose();
       reflection?.dispose();

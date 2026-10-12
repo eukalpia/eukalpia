@@ -85,6 +85,12 @@ export interface DebugHandle {
   stats(): DebugStats;
   /** Bind-pose proportions of UR-01 once it has loaded. */
   character?: () => { height: number; widthRatio: number; depthRatio: number };
+  /** Photo mode for the shot harness. */
+  photo?: {
+    enter(): Promise<{ ok: boolean; message?: string }>;
+    status(): { phase: string; samples: number; target: number } | null;
+    triangles(): number;
+  };
 }
 
 declare global {

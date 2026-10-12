@@ -53,6 +53,8 @@ export interface Orbit {
   /** Back to the overview after walking: unfreeze and fly out to the default orbit pose. */
   home(): void;
   readonly tourActive: boolean;
+  /** Ends the cinematic tour where it is, as a drag or wheel would. */
+  stopTour(): void;
   readonly controls: OrbitControls;
   dispose(): void;
 }
@@ -94,6 +96,7 @@ export function createOrbit(camera: PerspectiveCamera, dom: HTMLElement, opts: {
     get tourActive() {
       return tourActive;
     },
+    stopTour,
     update(dt) {
       if (frozen) return;
       if (tourActive) {

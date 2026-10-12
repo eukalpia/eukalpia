@@ -163,7 +163,10 @@ try {
           polling: 5000,
         });
         const photoFile = file.replace(/\.png$/, `-photo${photoSamples}.png`);
-        // The traced frame alone, without the interface on top.
+        // The traced frame alone: an element screenshot is a crop of the page, so hide the interface.
+        await page.addStyleTag({
+          content: 'body * { visibility: hidden !important } canvas { visibility: visible !important }',
+        });
         await page.locator('canvas').screenshot({ path: photoFile, timeout: 180000 });
         const triangles = await page.evaluate(() => window.__eukalpia.photo.triangles());
         s.photo = {

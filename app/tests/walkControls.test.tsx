@@ -107,3 +107,13 @@ test('touch actions: INSPECT, the run toggle, JUMP', () => {
   ]);
   expect(screen.getByText('SWIPE THE WORLD TO LOOK')).toBeTruthy();
 });
+
+test('a stick held when the controls go away (a panel opens) lets go', () => {
+  const p = props();
+  const { unmount } = render(<WalkControls {...p} />);
+  const stick = screen.getByRole('button', { name: 'Movement joystick. Drag to walk.' });
+  stick.getBoundingClientRect = () => ({ left: 0, top: 0, width: 126, height: 126 }) as DOMRect;
+  fireEvent.pointerDown(stick, { pointerId: 1, clientX: 63, clientY: 10 });
+  unmount();
+  expect((p.onStick as ReturnType<typeof vi.fn>).mock.calls.at(-1)).toEqual([0, 0]);
+});

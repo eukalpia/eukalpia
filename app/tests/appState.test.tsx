@@ -49,6 +49,7 @@ function recordingWorld() {
       firstPerson: () => false,
       inspect: rec('inspect'),
       lift: rec('lift'),
+      setActive: rec('setActive'),
     },
     photo: {
       enter: async () => ({ ok: true }),
@@ -218,6 +219,23 @@ test('clicking a building opens its card and flies there; clicking the air taxi 
   expect(r.called('focusDistrict')).toEqual([['focusDistrict', lms.id]]);
   await act(async () => r.pick({ kind: 'vehicle' }));
   expect(r.called('followVehicle')).toHaveLength(1);
+});
+
+test('UR-01 takes keys only while nothing covers the city: a panel, a district card or pause stills it', async () => {
+  vi.useFakeTimers();
+  const r = await mount();
+  const active = () => r.called('setActive').at(-1)?.[1];
+  fireEvent.click(screen.getByRole('button', { name: 'Walk through the city' }));
+  await act(async () => vi.advanceTimersByTime(300));
+  expect(active()).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Explore projects while walking' }));
+  expect(active()).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Close panel' }));
+  await act(async () => vi.advanceTimersByTime(300));
+  expect(active()).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Pause motion' }));
+  expect(active()).toBe(false);
+  vi.useRealTimers();
 });
 
 test("walking shows v1's walk panel in place of the dock; its buttons drive UR-01 and Exit returns to orbit", async () => {

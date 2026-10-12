@@ -14,6 +14,8 @@ export interface Walk {
   readonly animator: Animator;
   enter(at?: Vector3): void;
   exit(): void;
+  /** Keys and look while walking; off while a panel or card covers the city, or motion is paused. */
+  setInputActive(on: boolean): void;
   update(dt: number): void;
   /** Drives the idle character while not walking (breathing, or a demo cycle). */
   idle(dt: number, demoSpeed?: number): void;
@@ -92,6 +94,13 @@ export function createWalk(ctx: {
       dragging = false;
       if (document.pointerLockElement === canvas) document.exitPointerLock?.();
       model.root.visible = true;
+    },
+    setInputActive(on) {
+      if (!active) return;
+      input.setEnabled(on);
+      if (on) return;
+      dragging = false;
+      if (document.pointerLockElement === canvas) document.exitPointerLock?.();
     },
     update(dt) {
       if (!active) return;

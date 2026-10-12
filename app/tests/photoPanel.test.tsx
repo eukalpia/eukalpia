@@ -50,6 +50,17 @@ test('Escape leaves photo mode', async () => {
   expect(photo.exit).toHaveBeenCalled();
 });
 
+test('Escape that closes a dialog over photo mode leaves photo mode alone', async () => {
+  const { world, photo } = fakeWorld();
+  render(<PhotoPanel world={world} canvas={null} />);
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: /^Ray Tracing/ })));
+  const dialog = document.body.appendChild(document.createElement('dialog'));
+  dialog.setAttribute('open', '');
+  fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+  expect(photo.exit).not.toHaveBeenCalled();
+  dialog.remove();
+});
+
 test('a refusal is announced and photo mode closes', async () => {
   const message =
     'Photo mode needs floating-point render targets (EXT_color_buffer_float), which this GPU does not offer.';

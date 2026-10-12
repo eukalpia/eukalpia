@@ -33,7 +33,10 @@ async function waitForServer() {
     if (serverExited) throw new Error(`vite preview exited; is port ${port} already in use?`);
     try {
       if ((await fetch(base)).ok) return;
-    } catch {}
+    } catch (error) {
+      // fetch refuses the ports on the WHATWG blocklist (e.g. 4190) before it even connects.
+      if (error?.cause?.message === 'bad port') throw new Error(`port ${port} is blocked by fetch; use another --port`);
+    }
     await new Promise(r => setTimeout(r, 200));
   }
   throw new Error('vite preview did not start');

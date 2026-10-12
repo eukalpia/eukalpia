@@ -7,6 +7,7 @@ import { buildCity } from '../src/world/buildings/geometry';
 import { buildCollisionWorld, createCollisionWorld } from '../src/world/collision';
 import { DEFAULT_SEED, createLayout } from '../src/world/layout';
 import { planFurniture } from '../src/world/street/furniture';
+import { planClutter } from '../src/world/street/clutter';
 
 const box = (x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): BufferGeometry =>
   new BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2).toNonIndexed();
@@ -86,4 +87,14 @@ test('real city spawn points stand on ground', () => {
   const world = buildCollisionWorld(layout, buildCity(layout, DISTRICTS).specs, planFurniture(layout, 'high'));
   expect(world.groundAt(CHARACTER_SPAWN.x, CHARACTER_SPAWN.z, 50)).toBeCloseTo(0, 2);
   expect(world.groundAt(0, 380, 50)).toBeNull();
+});
+
+test('signal poles are solid', () => {
+  const layout = createLayout(DEFAULT_SEED, DISTRICTS);
+  const specs = buildCity(layout, DISTRICTS).specs;
+  const pole = planClutter(layout, specs).signals[0];
+  const world = buildCollisionWorld(layout, specs, planFurniture(layout, 'high'), [pole]);
+  const hit = world.raycast(new Vector3(pole.x - 3, pole.y + 1.2, pole.z), new Vector3(1, 0, 0), 5);
+  expect(hit).not.toBeNull();
+  expect(hit!).toBeCloseTo(2.9, 1);
 });

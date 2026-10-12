@@ -79,6 +79,7 @@ export function buildCollisionWorld(
   layout: CityLayout,
   specs: readonly BuildingSpec[],
   furniture: FurniturePlan,
+  posts: readonly { x: number; y: number; z: number }[] = [],
 ): CollisionWorld {
   const parts: BufferGeometry[] = [];
   for (const island of layout.islands) {
@@ -127,6 +128,7 @@ export function buildCollisionWorld(
   for (const r of furniture.railings) parts.push(wall(r.ax, r.az, r.bx, r.bz, r.y, 1.1, 0.12));
   for (const p of [...furniture.lamps, ...furniture.trees])
     parts.push(solidBox(p.x - 0.15, p.y, p.z - 0.15, p.x + 0.15, p.y + 3, p.z + 0.15));
+  for (const p of posts) parts.push(solidBox(p.x - 0.1, p.y, p.z - 0.1, p.x + 0.1, p.y + 3.4, p.z + 0.1));
   for (const c of furniture.parkedCars) {
     const along = Math.abs(Math.cos(c.rotY)) > 0.5;
     const hx = along ? 2.2 : 0.92;

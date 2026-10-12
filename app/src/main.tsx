@@ -36,7 +36,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App
       quality={params.quality ?? tier}
-      initialTime={params.time ?? (params.shot === 'orbit-night' ? 'night' : 'day')}
+      initialTime={params.time ?? (params.shot?.endsWith('-night') ? 'night' : 'day')}
       shot={params.shot}
       reducedMotion={reducedMotion}
       webgl2={gpu.webgl2}

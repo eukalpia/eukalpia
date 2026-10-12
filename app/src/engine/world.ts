@@ -16,6 +16,8 @@ import { captureCityReflection, createCityMeshes, loadWorldTextures } from '../w
 import { DEFAULT_SEED, createLayout } from '../world/layout';
 import { createTerrain } from '../world/terrain';
 import { createTraffic } from '../world/street/traffic';
+import { planClutter } from '../world/street/clutter';
+import { createClutterMeshes } from '../world/street/clutterMeshes';
 import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
 import { createWalk, type Walk } from '../character/walk';
@@ -92,11 +94,17 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
 
   const terrain = createTerrain(layout, { tier: opts.quality, sun, textures });
   scene.add(terrain.group);
+  const clutterPlan = planClutter(layout, city.specs);
+  const clutter = createClutterMeshes(clutterPlan, { sun });
+  scene.add(clutter.group);
   const traffic = createTraffic(layout, city.specs, terrain.street, {
     sun,
     cars: { high: 260, medium: 160, low: 60 }[opts.quality],
+    crossings: clutterPlan.crossings,
   });
   scene.add(traffic.group);
+  // Signals and the cars that obey them share one clock, which stops while the tab is hidden.
+  let streetClock = 0;
 
   // UR-01 waits on the sidewalk. A failed download only disables walking; the city keeps running.
   loadCharacter(opts.quality === 'low' ? 'mobile' : 'desktop', import.meta.env.BASE_URL)
@@ -107,7 +115,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       scene.add(model.root);
       character = model;
       debug.character = () => measureBindPose(model);
-      const collision = buildCollisionWorld(layout, city.specs, terrain.furniture);
+      const collision = buildCollisionWorld(layout, city.specs, terrain.furniture, clutterPlan.signals);
       walk = createWalk({
         camera,
         canvas,
@@ -192,6 +200,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     city.setNight(time === 'night', preset.windowLitRatio);
     terrain.setNight(time === 'night');
     traffic.setNight(time === 'night');
+    clutter.setNight(time === 'night');
     sun.update();
     city.facade.envMap = null;
     reflection?.dispose();
@@ -226,7 +235,9 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     city.update(dt);
     post.clouds.update(timer.getElapsed());
     terrain.update(timer.getElapsed());
-    traffic.update(dt);
+    streetClock += dt;
+    traffic.update(dt, streetClock);
+    clutter.update(streetClock);
     updateStreetLights(currentTime === 'night');
     sun.update();
     renderer.info.reset();
@@ -284,6 +295,7 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       city.dispose();
       terrain.dispose();
       traffic.dispose();
+      clutter.dispose();
       reflection?.dispose();
       environment.dispose();
       renderer.dispose();

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import { parseShotParams } from './engine/debug';
+import { parseSector } from './app/url';
 import { detectTier, readDeviceInfo } from './engine/quality';
 import './styles.css';
 
@@ -40,6 +41,7 @@ createRoot(document.getElementById('root')!).render(
       reducedMotion={reducedMotion}
       webgl2={gpu.webgl2}
       debug={params.debug}
+      sector={parseSector(window.location.search)}
     />
   </StrictMode>,
 );

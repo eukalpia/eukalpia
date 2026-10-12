@@ -35,6 +35,13 @@ export const UR01 = {
 };
 
 export type BoneName = (typeof UR01.bones)[number];
+
+/** GLTFLoader strips `[]./:` from node names ("foot.L" → "footL"); compare names through this key. */
+export function boneKey(name: string): string {
+  return name.replace(/[\[\]\.:\/]/g, '').toLowerCase();
+}
+
+const BONE_BY_KEY = new Map<string, BoneName>(UR01.bones.map(b => [boneKey(b), b]));
 export type CharacterVariant = 'desktop' | 'mobile';
 
 export interface CharacterModel {
@@ -69,8 +76,8 @@ export async function loadCharacter(variant: CharacterVariant, base: string): Pr
       o.frustumCulled = false;
     }
     if (o instanceof SkinnedMesh) skinned.push(o);
-    if ((o as Bone).isBone && (UR01.bones as readonly string[]).includes(o.name))
-      bones.set(o.name as BoneName, o as Bone);
+    const name = BONE_BY_KEY.get(boneKey(o.name));
+    if ((o as Bone).isBone && name) bones.set(name, o as Bone);
   });
   const model: CharacterModel = {
     root,

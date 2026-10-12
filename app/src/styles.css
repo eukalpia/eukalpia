@@ -70,3 +70,6 @@ body {
   background: rgba(11, 16, 21, 0.7);
   border-radius: 6px;
 }
+.world-utility-walk {
+  right: 110px;
+}

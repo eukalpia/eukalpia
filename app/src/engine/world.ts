@@ -17,6 +17,9 @@ import { DEFAULT_SEED, createLayout } from '../world/layout';
 import { createTerrain } from '../world/terrain';
 import { CHARACTER_SPAWN, createOrbit } from './camera/orbit';
 import { loadCharacter, measureBindPose } from '../character/model';
+import { createWalk, type Walk } from '../character/walk';
+import type { Sector } from '../app/url';
+import { buildCollisionWorld } from '../world/collision';
 import { installDebug, type DebugFlag, type DebugHandle, type ShotName } from './debug';
 import { createEnvironment } from './lighting/environment';
 import { createSky } from './lighting/sky';
@@ -34,10 +37,16 @@ export interface WorldOptions {
   shot?: ShotName;
   reducedMotion: boolean;
   debug?: DebugFlag[];
+  sector?: Sector;
 }
+
+export type WorldMode = 'orbit' | 'walk';
 
 export interface World {
   setTime(time: TimeOfDay): void;
+  /** Switches between the orbit overview and walking with UR-01; false if walking is not available yet. */
+  setMode(mode: WorldMode): boolean;
+  mode(): WorldMode;
   resize(width: number, height: number): void;
   dispose(): void;
   renderer: WebGLRenderer;
@@ -92,10 +101,42 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
       scene.add(model.root);
       character = model;
       debug.character = () => measureBindPose(model);
+      const collision = buildCollisionWorld(layout, city.specs, terrain.furniture);
+      walk = createWalk({
+        camera,
+        canvas,
+        world: collision,
+        model,
+        spawn: new Vector3(CHARACTER_SPAWN.x, layout.islands[0].topY, CHARACTER_SPAWN.z),
+      });
+      walk.onAction(a => a === 'exit' && setMode('orbit'));
+      if (opts.sector === 'street' && !opts.shot) setMode('walk');
     })
     .catch(error => console.warn(String(error)));
   let character: Awaited<ReturnType<typeof loadCharacter>> | null = null;
+  let walk: Walk | null = null;
   let disposed = false;
+  let mode: WorldMode = 'orbit';
+  function setMode(next: WorldMode): boolean {
+    if (next === 'walk' && !walk) return false;
+    if (next === mode) return true;
+    mode = next;
+    if (next === 'walk') {
+      orbit.controls.enabled = false;
+      camera.near = 0.15;
+      camera.far = 6000;
+      walk!.enter();
+    } else {
+      walk?.exit();
+      camera.near = 1;
+      camera.far = 12000;
+      camera.fov = 40;
+      orbit.home();
+    }
+    camera.updateProjectionMatrix();
+    sun.csm.updateFrustums();
+    return true;
+  }
 
   // At night the eight lamps nearest to the camera are real lights; the rest glow via the baked ground mask.
   const streetLights = Array.from({ length: 8 }, () => {
@@ -169,7 +210,11 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     timer.update(timestamp);
     const rawDt = timer.getDelta();
     const dt = Math.min(rawDt, 0.1);
-    orbit.update(dt);
+    if (walk?.active) walk.update(dt);
+    else {
+      orbit.update(dt);
+      walk?.idle(dt, flags.has('walkcycle') ? 1.6 : 0);
+    }
     sky.update(timer.getElapsed());
     city.update(dt);
     post.clouds.update(timer.getElapsed());
@@ -215,8 +260,11 @@ export async function createWorld(canvas: HTMLCanvasElement, opts: WorldOptions)
     camera,
     resize,
     setTime,
+    setMode,
+    mode: () => mode,
     dispose() {
       disposed = true;
+      walk?.dispose();
       character?.dispose();
       document.removeEventListener('visibilitychange', syncLoop);
       timer.dispose();

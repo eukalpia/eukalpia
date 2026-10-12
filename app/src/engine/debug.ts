@@ -24,8 +24,17 @@ const TIMES: readonly TimeOfDay[] = ['day', 'night'];
 const TIERS: readonly QualityTier[] = ['high', 'medium', 'low'];
 
 /** Look-dev switches that turn one subsystem off at a time. */
-export type DebugFlag = 'nofog' | 'noreflect' | 'nopost' | 'noclouds' | 'noshadow' | 'nobloom' | 'noao';
-const DEBUG_FLAGS: readonly DebugFlag[] = ['nofog', 'noreflect', 'nopost', 'noclouds', 'noshadow', 'nobloom', 'noao'];
+export type DebugFlag = 'nofog' | 'noreflect' | 'nopost' | 'noclouds' | 'noshadow' | 'nobloom' | 'noao' | 'walkcycle';
+const DEBUG_FLAGS: readonly DebugFlag[] = [
+  'nofog',
+  'noreflect',
+  'nopost',
+  'noclouds',
+  'noshadow',
+  'nobloom',
+  'noao',
+  'walkcycle',
+];
 
 export interface ShotParams {
   shot?: ShotName;

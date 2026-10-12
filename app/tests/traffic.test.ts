@@ -2,7 +2,15 @@ import { DISTRICTS } from '../src/content/districts';
 import { buildCity } from '../src/world/buildings/geometry';
 import { DEFAULT_SEED, createLayout } from '../src/world/layout';
 import { planClutter, signalState } from '../src/world/street/clutter';
-import { CAR_HALF, carPose, createTrafficSim, planSkyways, planTraffic, podPose } from '../src/world/street/traffic';
+import {
+  CAR_HALF,
+  carPose,
+  createTrafficSim,
+  planSkyways,
+  planTraffic,
+  podPose,
+  poseOnLoop,
+} from '../src/world/street/traffic';
 
 const L = createLayout(DEFAULT_SEED, DISTRICTS);
 const specs = buildCity(L, DISTRICTS).specs;
@@ -105,4 +113,40 @@ describe('traffic obeys the signals', () => {
     expect(start).toHaveLength(routes.length);
     for (const d of travelled) expect(d).toBeGreaterThan(240);
   });
+});
+
+test('cars on crossing streets never meet, anywhere', () => {
+  const crossings = planClutter(L, specs).crossings;
+  const sim = createTrafficSim(routes, crossings);
+  const meets: string[] = [];
+  const dt = 1 / 20;
+  for (let k = 1; k <= 300 * 20; k++) {
+    sim.step(dt, k * dt);
+    if (k % 10) continue;
+    const cells = new Map<string, { x: number; z: number; vertical: boolean }[]>();
+    for (const car of sim.cars) {
+      const p = poseOnLoop(car.route.street, car.d);
+      const vertical = Math.abs(car.route.street.ax - car.route.street.bx) < 1e-6;
+      const key = `${Math.floor(p.x / 8)}:${Math.floor(p.z / 8)}`;
+      for (let i = -1; i <= 1; i++)
+        for (let j = -1; j <= 1; j++)
+          for (const o of cells.get(`${Math.floor(p.x / 8) + i}:${Math.floor(p.z / 8) + j}`) ?? [])
+            if (o.vertical !== vertical && Math.hypot(o.x - p.x, o.z - p.z) < 3.5)
+              meets.push(`${p.x.toFixed(0)},${p.z.toFixed(0)} at ${(k * dt).toFixed(1)}s`);
+      if (!cells.has(key)) cells.set(key, []);
+      cells.get(key)!.push({ x: p.x, z: p.z, vertical });
+    }
+  }
+  expect(meets.slice(0, 5)).toEqual([]);
+});
+
+test('cars turn around on the asphalt, not on the rim promenade', () => {
+  for (const r of routes) {
+    const island = L.islands.find(i => i.id === r.street.islandId)!;
+    for (const end of [
+      [r.street.ax, r.street.az],
+      [r.street.bx, r.street.bz],
+    ])
+      expect(Math.hypot(end[0] - island.cx, end[1] - island.cz)).toBeLessThanOrEqual(island.radius - 14);
+  }
 });

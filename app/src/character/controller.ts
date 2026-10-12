@@ -10,6 +10,8 @@ export const STEP_HEIGHT = 0.35;
 const GRAVITY = 9.81;
 const MAX_STEP = 1 / 120;
 const ACCELERATION = 14;
+/** Falling this far below the lowest island means UR-01 left the city: put them back. */
+const FALL_LIMIT = 40;
 
 export interface MoveInput {
   /** −1..1 along the facing direction. */
@@ -64,6 +66,8 @@ function pushOut(b: Box3, p: Vector3, topY: number) {
 export function createController(world: CollisionWorld, spawn: Vector3): Controller {
   const position = spawn.clone();
   const velocity = new Vector3();
+  const lastSafe = spawn.clone();
+  const floor = Math.min(...world.islands.map(i => i.topY)) - FALL_LIMIT;
   const start = new Vector3();
   const c: Controller = {
     position,
@@ -97,6 +101,7 @@ export function createController(world: CollisionWorld, spawn: Vector3): Control
       }
       position.set(x, ground + 0.02, z);
       velocity.set(0, 0, 0);
+      lastSafe.copy(position);
     },
   };
 
@@ -121,7 +126,7 @@ export function createController(world: CollisionWorld, spawn: Vector3): Control
       },
     });
     // Moving solids: the capsule stays upright, so push it out sideways.
-    for (const m of world.movers) for (const b of m.boxes()) pushOut(b, segment.start, segment.end.y);
+    for (const m of world.movers) for (const b of m.solids()) pushOut(b, segment.start, segment.end.y);
     position.x = segment.start.x;
     position.z = segment.start.z;
     // Ceilings may push down; floors are handled by the ground snap, not by the capsule.
@@ -167,6 +172,12 @@ export function createController(world: CollisionWorld, spawn: Vector3): Control
       velocity.y = 0;
     } else {
       c.grounded = false;
+    }
+    if (c.grounded) lastSafe.copy(position);
+    else if (position.y < floor) {
+      position.copy(lastSafe);
+      velocity.set(0, 0, 0);
+      c.grounded = true;
     }
   }
 

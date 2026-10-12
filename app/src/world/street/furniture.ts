@@ -161,7 +161,8 @@ export function planFurniture(layout: CityLayout, tier: QualityTier): FurnitureP
       .filter(b => b.from === island.id || b.to === island.id)
       .map(b => {
         const [x, z] = b.from === island.id ? [b.ax, b.az] : [b.bx, b.bz];
-        return { angle: Math.atan2(z - island.cz, x - island.cx), half: (b.width + 2) / 2 / r };
+        // The railing runs right up to the bridge's side walls: no opening to slip through.
+        return { angle: Math.atan2(z - island.cz, x - island.cx), half: (b.width - 0.2) / 2 / r };
       });
     const steps = Math.ceil((Math.PI * 2 * r) / RAILING_SEGMENT);
     const da = (Math.PI * 2) / steps;

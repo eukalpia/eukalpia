@@ -33,6 +33,8 @@ const BRIDGE_WIDTH = 2;
 const PARAPET = 1.1;
 const STAIR_RUN = 0.35;
 const HALF = INNER / 2 + WALL;
+/** How far below the platform a jumping rider can be and still be caught by it. */
+const CATCH = 3;
 
 export type LiftStop = 'street' | 'roof';
 
@@ -202,17 +204,21 @@ export function createLift(plan: LiftPlan, collision: CollisionWorld, ctx?: { su
   const platformBox = new Box3();
   const streetDoor = frameBox(plan, -h, h, h, h + WALL, plan.streetY, plan.streetY + DOOR_HEIGHT);
   const roofDoor = frameBox(plan, -h, h, -h - WALL, -h, plan.roofY, plan.roofY + DOOR_HEIGHT);
-  const live: Box3[] = [];
+  const doorsShut: Box3[] = [];
+  const floors = [platformBox];
   const mover: Mover = {
-    boxes() {
-      live.length = 0;
-      const half = PLATFORM / 2;
-      live.push(platformBox.copy(frameBox(plan, -half, half, -half, half, y - 0.25, y)));
+    solids() {
+      doorsShut.length = 0;
       const open = state === 'idle' || state === 'opening' ? at() : null;
       const ajar = doors > 0.5;
-      if (!(open === 'street' && ajar)) live.push(streetDoor);
-      if (!(open === 'roof' && ajar)) live.push(roofDoor);
-      return live;
+      if (!(open === 'street' && ajar)) doorsShut.push(streetDoor);
+      if (!(open === 'roof' && ajar)) doorsShut.push(roofDoor);
+      return doorsShut;
+    },
+    floors() {
+      const half = PLATFORM / 2;
+      platformBox.copy(frameBox(plan, -half, half, -half, half, y - 0.25, y));
+      return floors;
     },
   };
   collision.movers.push(mover);
@@ -287,9 +293,15 @@ export function createLift(plan: LiftPlan, collision: CollisionWorld, ctx?: { su
         doors = Math.min(1, doors + dt / DOOR_TIME);
         if (doors === 1) state = 'idle';
       }
-      if (carried && y !== before) {
-        rider.position.y = y;
-        rider.velocity.y = 0;
+      if (rider && y !== before) {
+        // Carry a rider standing on the platform; catch one it overtook mid-jump inside the shaft.
+        const { a, b } = local(rider.position);
+        const inShaft = Math.abs(a) < INNER / 2 && Math.abs(b) < INNER / 2;
+        const overtaken = inShaft && rider.position.y < y && rider.position.y > y - CATCH;
+        if (carried || overtaken) {
+          rider.position.y = y;
+          rider.velocity.y = Math.min(0, rider.velocity.y);
+        }
       }
       visuals.place(y, doors, at());
       return y;

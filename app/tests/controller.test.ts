@@ -98,3 +98,14 @@ test('signal poles are solid', () => {
   expect(hit).not.toBeNull();
   expect(hit!).toBeCloseTo(2.9, 1);
 });
+
+test('a fall into the void puts UR-01 back where they last stood', () => {
+  // The yard has no railing on its −z edge: run off it, then let go of the keys.
+  const c = createController(yard(), new Vector3(20, 0.5, 0));
+  c.yaw = 0; // facing −z
+  simulate(c, 9, run(1));
+  simulate(c, 6, still);
+  expect(c.grounded).toBe(true);
+  expect(c.position.y).toBeCloseTo(0, 2);
+  expect(c.position.z).toBeGreaterThan(-30);
+});

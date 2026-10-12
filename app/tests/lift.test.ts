@@ -136,3 +136,25 @@ test('a rider stays on the platform through a long frame at full speed', () => {
   c.update(0.1, idle);
   expect(Math.abs(c.position.y - y)).toBeLessThan(0.02);
 });
+
+test('jumping in the moving lift lands back in the cab', () => {
+  const { world, lift } = fresh();
+  const c = createController(world, new Vector3(plan.x, plan.streetY + 1, plan.z));
+  for (let k = 0; k < 30; k++) c.update(dt, idle);
+  lift.call('roof');
+  let y = plan.streetY;
+  while (y < plan.streetY + 80) {
+    y = lift.update(dt, c);
+    c.update(dt, idle);
+  }
+  y = lift.update(dt, c);
+  c.update(dt, { ...idle, jump: true });
+  for (let k = 0; k < 3 * 60; k++) {
+    y = lift.update(dt, c);
+    c.update(dt, idle);
+  }
+  const a = (c.position.x - plan.x) * plan.ux + (c.position.z - plan.z) * plan.uz;
+  const b = (c.position.x - plan.x) * plan.nx + (c.position.z - plan.z) * plan.nz;
+  expect(Math.max(Math.abs(a), Math.abs(b))).toBeLessThan(1.3);
+  expect(Math.abs(c.position.y - y)).toBeLessThan(0.05);
+});

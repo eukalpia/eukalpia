@@ -41,6 +41,8 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
         if (disposed) return world.dispose();
         worldRef.current = world;
         if (timeRef.current !== initialTime) world.setTime(timeRef.current);
+        // Esc, ?sector=street and the lift can change the mode without the button.
+        world.onModeChange?.(mode => setWalking(mode === 'walk'));
       })
       .catch(error => {
         console.warn('EUKALPIA: falling back to postcard mode.', error);
@@ -58,6 +60,14 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   }, [quality, initialTime, shot, reducedMotion, postcard]);
 
   useEffect(() => worldRef.current?.setTime(time), [time]);
+
+  // A short notice, e.g. why walking is not available yet.
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
 
   // Temporary lift hint until the full interface lands: what the L key would do right now.
   const [liftHint, setLiftHint] = useState<string | null>(null);
@@ -84,16 +94,24 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       <button
         className="world-utility world-utility-walk"
         onClick={() => {
+          const world = worldRef.current;
+          if (!world) return;
           const next = !walking;
-          if (worldRef.current?.setMode(next ? 'walk' : 'orbit')) setWalking(next);
+          if (world.setMode(next ? 'walk' : 'orbit')) setWalking(next);
+          else if (next)
+            setNotice(
+              world.walkState?.() === 'failed'
+                ? 'Walking is unavailable: UR-01 could not load.'
+                : 'UR-01 is still loading…',
+            );
         }}
         aria-label={walking ? 'Return to orbit' : 'Walk through the city'}
       >
         {walking ? 'ORBIT' : 'WALK'}
       </button>
-      {liftHint && (
+      {(notice ?? liftHint) && (
         <p className="world-hint" role="status">
-          {liftHint}
+          {notice ?? liftHint}
         </p>
       )}
     </main>

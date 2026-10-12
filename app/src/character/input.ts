@@ -26,6 +26,8 @@ export interface Input {
   setStick(x: number, y: number): void;
   setRun(run: boolean): void;
   pressJump(): void;
+  /** Only while walking do the walk keys belong to the character; otherwise the page keeps them. */
+  setEnabled(enabled: boolean): void;
   clear(): void;
   dispose(): void;
 }
@@ -51,9 +53,10 @@ export function createInput(target: Window): Input {
   let jumpQueued = false;
   let stick = { x: 0, y: 0 };
   let runToggle = false;
+  let enabled = false;
 
   const down = (e: KeyLike) => {
-    if (typing(e)) return;
+    if (!enabled || typing(e)) return;
     const k = KEYS[e.code ?? ''];
     if (k) {
       held.add(k);
@@ -109,6 +112,10 @@ export function createInput(target: Window): Input {
     },
     pressJump() {
       jumpQueued = true;
+    },
+    setEnabled(on) {
+      enabled = on;
+      if (!on) clear();
     },
     clear,
     dispose() {

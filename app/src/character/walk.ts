@@ -83,12 +83,12 @@ export function createWalk(ctx: {
     enter(at) {
       if (at) controller.teleport(at);
       active = true;
-      input.clear();
+      input.setEnabled(true);
       model.root.visible = cameras.mode === 'third';
     },
     exit() {
       active = false;
-      input.clear();
+      input.setEnabled(false);
       dragging = false;
       if (document.pointerLockElement === canvas) document.exitPointerLock?.();
       model.root.visible = true;
@@ -130,6 +130,8 @@ export function createWalk(ctx: {
       cameras.update(dt, p, yaw, pitch);
     },
     idle(dt, demoSpeed = 0) {
+      // The lift may carry UR-01 while the camera is in orbit.
+      model.root.position.copy(controller.position);
       animator.update(dt, { speed: demoSpeed, grounded: true, verticalSpeed: 0, turnRate: 0, groundL: 0, groundR: 0 });
     },
     onAction(fn) {

@@ -1,8 +1,8 @@
 import { DISTRICTS } from '../src/content/districts';
-import { buildBridge } from '../src/world/islands/bridge';
+import { bridgeDeckY, buildBridge } from '../src/world/islands/bridge';
 import { buildIslandRock, buildRoots } from '../src/world/islands/island';
 import { buildWaterfalls } from '../src/world/islands/waterfall';
-import { DEFAULT_SEED, createLayout } from '../src/world/layout';
+import { BRIDGE_INSET, DEFAULT_SEED, createLayout } from '../src/world/layout';
 import { mulberry32 } from '../src/world/rng';
 
 const L = createLayout(DEFAULT_SEED, DISTRICTS);
@@ -85,4 +85,18 @@ test('rock faces point outwards so the underside is visible from below', () => {
     total++;
   }
   expect(outward / total).toBeGreaterThan(0.9);
+});
+
+test('a bridge deck is level with each island inside its rim, then arches without a step', () => {
+  for (const b of L.bridges) {
+    const len = Math.hypot(b.bx - b.ax, b.bz - b.az);
+    const rim = BRIDGE_INSET / len;
+    for (const t of [0, rim * 0.5, rim]) expect(bridgeDeckY(b, t)).toBeCloseTo(b.ay, 6);
+    for (const t of [1 - rim, 1 - rim * 0.5, 1]) expect(bridgeDeckY(b, t)).toBeCloseTo(b.by, 6);
+    // No step anywhere: neighbouring samples 0.5 m apart differ by less than the 0.35 m step height.
+    for (let d = 0; d < len; d += 0.5) {
+      const dy = Math.abs(bridgeDeckY(b, (d + 0.5) / len) - bridgeDeckY(b, d / len));
+      expect(dy).toBeLessThan(0.35);
+    }
+  }
 });

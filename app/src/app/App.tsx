@@ -10,7 +10,9 @@ import { DiscoveriesPanel } from './panels/Discoveries';
 import { HelpPanel } from './panels/Help';
 import { ProjectsPanel } from './panels/Projects';
 import { PhotoPanel } from './PhotoPanel';
+import { discover, loadSignals, saveSignals } from './signals';
 import { initialUiState, uiReducer, type UiAction } from './state';
+import type { SignalId } from '../content/signals';
 import { shareUrl, withSector, type Sector } from './url';
 
 export interface AppProps {
@@ -38,6 +40,17 @@ const COPIED_MS = 2500;
 const FREE_FLIGHT = 'FREE FLIGHT · Click the city, then W A S D to move. Q / E change altitude. Drag to turn.';
 const SUIT_FAILED = 'The exploration suit could not load. Please try Walk again.';
 const SUIT_LOADING = 'UR-01 is still loading…';
+const BLACKOUT_MS = 4200;
+const KNOCKS = 7;
+
+/** localStorage, or null where the browser refuses it (private modes, sandboxed frames). */
+function storage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 /** Free-flight keys (by code, so any keyboard layout works) → movement axes. */
 const FLY_KEYS: Record<string, [axis: 'forward' | 'right' | 'up', sign: number]> = {
@@ -66,6 +79,10 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
   );
   const uiRef = useRef(ui);
   uiRef.current = ui;
+  const [signals, setSignals] = useState<SignalId[]>(() => loadSignals(storage()));
+  const [override, setOverride] = useState(false);
+  const [blackout, setBlackout] = useState(false);
+  const knocks = useRef(0);
 
   useEffect(greetConsole, []);
 
@@ -85,6 +102,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
         world.onPick?.(target => {
           if (target.kind === 'district') dispatch({ type: 'select', id: target.id });
           else if (target.kind === 'vehicle' && !uiRef.current.walking) world.followVehicle?.();
+          else if (target.kind === 'secret') onSecret.current(target.id);
         });
         if (sector === 'underworld') world.setSector?.('underworld');
       })
@@ -158,7 +176,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       projects: () => dispatch({ type: 'panel', panel: 'districts' }),
       go: target => dispatch({ type: 'go', sector: target }),
       pause: () => dispatch({ type: 'togglePause' }),
-      override: () => {},
+      override: () => onSecret.current('override'),
     });
     const onKey = (e: KeyboardEvent) => keys.down(e);
     window.addEventListener('keydown', onKey);
@@ -228,6 +246,55 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     }
   };
 
+  // Discoveries (inventory 3.11): a new one is stored and toasted; a repeat still has its effect.
+  const signalsRef = useRef(signals);
+  signalsRef.current = signals;
+  const found = (id: SignalId) => {
+    const r = discover(signalsRef.current, id);
+    if (r.isNew) {
+      signalsRef.current = r.list;
+      setSignals(r.list);
+      saveSignals(storage(), r.list);
+      setToast(r.toast!);
+    }
+    const world = worldRef.current;
+    if (id === 'cat') world?.setCatFound?.(true);
+    if (id === 'override') setOverride(true);
+    if (id === 'underworld' && uiRef.current.sector !== 'underworld') dispatch({ type: 'go', sector: 'underworld' });
+    if (r.isNew && r.list.length === 6 && !uiRef.current.walking && id !== 'underworld')
+      dispatch({ type: 'go', sector: 'overview' });
+  };
+  const onSecret = useRef<(id: SignalId) => void>(() => {});
+  onSecret.current = id => {
+    if (id !== 'monolith') return found(id);
+    // Seven knocks, and every seventh after that, black the city out.
+    knocks.current += 1;
+    if (knocks.current % KNOCKS !== 0) return;
+    found('monolith');
+    setBlackout(true);
+    worldRef.current?.blackout?.(BLACKOUT_MS);
+  };
+  useEffect(() => {
+    if (!blackout) return;
+    const id = window.setTimeout(() => setBlackout(false), BLACKOUT_MS);
+    return () => window.clearTimeout(id);
+  }, [blackout]);
+  // Override lasts for the visit: it only ever turns on.
+  useEffect(() => {
+    if (override) world?.setOverride?.(true);
+  }, [world, override]);
+  const completed = signals.length === 6;
+  useEffect(() => {
+    if (world && completed) world.setCompleted?.(true);
+  }, [world, completed]);
+  useEffect(() => {
+    if (!world) return;
+    if (signalsRef.current.includes('cat')) world.setCatFound?.(true);
+    // Floor −1 from the address bar counts, once the city is there to show it.
+    if (sector === 'underworld') onSecret.current('underworld');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [world]);
+
   const act = (a: UiAction) => dispatch(a);
   const enterWalk = () => {
     const world = worldRef.current;
@@ -245,6 +312,9 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
     ready && 'is-ready',
     ui.night ? 'night' : 'dawn',
     ui.pixelated && 'pixelated',
+    override && 'override',
+    blackout && 'blackout',
+    completed && 'completed',
   ].filter(Boolean);
   const closePanel = () => act({ type: 'panel', panel: null });
 
@@ -287,7 +357,7 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
           walkDisabled={world === null}
           orbitActive={ui.sector === 'overview' && ui.panel === null}
           districts={DISTRICTS.length}
-          found={0}
+          found={signals.length}
           onOrbit={() => act({ type: 'go', sector: 'overview' })}
           onWalk={enterWalk}
           onProjects={() => act({ type: 'panel', panel: 'districts' })}
@@ -297,11 +367,24 @@ export function App({ quality, initialTime, shot, reducedMotion, webgl2, debug, 
       </footer>
       {selectedDistrict && <Inspector district={selectedDistrict} onClose={() => act({ type: 'select', id: null })} />}
       <Toast text={toast} />
+      {blackout && (
+        <div className="blackout-message" aria-live="polite">
+          <span>THE HEARTBEAT CONTINUES.</span>
+          <small>SIGNAL RECOVERED / SEVEN KNOCKS</small>
+        </div>
+      )}
       {liftHint && <p className="world-hint">{liftHint}</p>}
       {ui.panel === 'districts' && <ProjectsPanel onSelect={id => act({ type: 'select', id })} onClose={closePanel} />}
-      {ui.panel === 'signals' && <DiscoveriesPanel found={[]} onClose={closePanel} />}
+      {ui.panel === 'signals' && <DiscoveriesPanel found={signals} onClose={closePanel} />}
       {ui.panel === 'author' && (
-        <BuilderPanel onMaintenance={() => act({ type: 'go', sector: 'underworld' })} onClose={closePanel} />
+        <BuilderPanel
+          onMaintenance={() => {
+            closePanel();
+            onSecret.current('underworld');
+            if (uiRef.current.sector === 'underworld') act({ type: 'go', sector: 'underworld' });
+          }}
+          onClose={closePanel}
+        />
       )}
       {ui.panel === 'help' && (
         <HelpPanel

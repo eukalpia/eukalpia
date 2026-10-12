@@ -13,7 +13,11 @@ export type ShotName =
   | 'character-front'
   | 'character-side'
   | 'character-closeup'
-  | 'character-three-quarter';
+  | 'character-three-quarter'
+  | 'secret-cat'
+  | 'secret-beacon'
+  | 'secret-elevator'
+  | 'secret-ghost-night';
 
 const SHOT_NAMES: readonly ShotName[] = [
   'orbit-day',
@@ -29,6 +33,10 @@ const SHOT_NAMES: readonly ShotName[] = [
   'character-side',
   'character-closeup',
   'character-three-quarter',
+  'secret-cat',
+  'secret-beacon',
+  'secret-elevator',
+  'secret-ghost-night',
 ];
 const TIMES: readonly TimeOfDay[] = ['day', 'night'];
 const TIERS: readonly QualityTier[] = ['high', 'medium', 'low'];
